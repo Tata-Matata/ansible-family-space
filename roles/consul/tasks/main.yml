@@ -1,0 +1,101 @@
+- name: Install required packages
+  apt:
+    name:
+      - unzip
+      - curl
+    state: present
+    update_cache: yes
+
+- name: Create consul group
+  group:
+    name: "{{ consul_group }}"
+
+- name: Create consul user
+  user:
+    name: "{{ consul_user }}"
+    group: "{{ consul_group }}"
+    system: yes
+    shell: /usr/sbin/nologin
+
+- name: Create Consul directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ consul_user }}"
+    group: "{{ consul_group }}"
+    mode: "0750"
+  loop:
+    - "{{ consul_data_dir }}"
+    - "{{ consul_config_dir }}"
+- name: Download Consul
+  get_url:
+    url: "https://releases.hashicorp.com/consul/{{ consul_version }}/consul_{{ consul_version }}_linux_amd64.zip"
+    dest: /tmp/consul.zip
+    mode: "0644"
+- name: Unzip Consul
+  unarchive:
+    src: /tmp/consul.zip
+    dest: /usr/local/bin/
+    remote_src: yes
+    creates: /usr/local/bin/consul
+
+- name: Set Consul binary permissions
+  file:
+    path: /usr/local/bin/consul
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Deploy Consul configuration
+  template:
+    src: consul.hcl.j2
+    dest: "{{ consul_config_dir }}/consul.hcl"
+    owner: "{{ consul_user }}"
+    group: "{{ consul_group }}"
+    mode: "0640"
+  notify: restart consul
+
+- name: Install Consul systemd unit
+  copy:
+    dest: /etc/systemd/system/consul.service
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=Consul
+      Requires=network-online.target
+      After=network-online.target
+
+      [Service]
+      User={{ consul_user }}
+      Group={{ consul_group }}
+      ExecStart=/usr/local/bin/consul agent \
+        -config-dir={{ consul_config_dir }}
+      Restart=on-failure
+      LimitNOFILE=65536
+
+      [Install]
+      WantedBy=multi-user.target
+
+- name: Reload systemd
+  systemd:
+    daemon_reload: yes
+
+- name: Enable and start Consul
+  systemd:
+    name: consul
+    enabled: yes
+    state: started
+
+- name: Wait for Consul HTTP API
+  uri:
+    url: http://127.0.0.1:8500/v1/status/leader
+    method: GET
+  register: consul_leader
+  retries: 10
+  delay: 3
+  until: consul_leader.status == 200
+
+- name: Verify Consul leader exists
+  fail:
+    msg: "Consul has no leader"
+  when: consul_leader.json == ""

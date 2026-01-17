@@ -1,0 +1,26 @@
+consul:
+  hosts:
+    consul-1:
+      ansible_host: 10.50.1.10
+
+
+vault:
+  hosts:
+    vault-1:
+      ansible_host: 10.50.1.20
+
+bastion:
+  hosts:
+    bastion-1:
+      ansible_connection: local
+
+k8s_controlplane:
+  hosts:
+    k8s_controlplane-1:
+      ansible_host: 10.50.1.30
+
+
+k8s_worker:
+  hosts:
+    k8s_worker-1:
+      ansible_host: 10.50.1.41

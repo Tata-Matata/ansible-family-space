@@ -1,0 +1,15 @@
+datacenter = "dc1"
+node_name  = "{{ inventory_hostname }}"
+
+data_dir = "{{ consul_data_dir }}"
+
+server = true
+bootstrap_expect = 1
+
+bind_addr   = "{{ consul_bind_addr }}"
+client_addr = "{{ consul_client_addr }}"
+
+log_level = "{{ consul_log_level }}"
+
+ui = false
+

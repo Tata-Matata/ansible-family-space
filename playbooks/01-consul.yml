@@ -1,0 +1,5 @@
+- name: Provision Consul
+  hosts: consul
+  become: true
+  roles:
+    - consul

@@ -1,0 +1,12 @@
+consul_version: "1.22.2"
+
+consul_user: consul
+consul_group: consul
+
+consul_data_dir: /opt/consul
+consul_config_dir: /etc/consul.d
+
+consul_bind_addr: "{{ ansible_default_ipv4.address }}"
+consul_client_addr: "{{ ansible_default_ipv4.address }}"
+
+consul_log_level: INFO
