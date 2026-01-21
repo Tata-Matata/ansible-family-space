@@ -3,11 +3,6 @@
   hosts: control
   become: true
 
-  collections:
-    - ansible.posix
-    - community.crypto
-    - community.general
-
   vars:
     private_iface: enp7s0
     public_iface: eth0
@@ -36,7 +31,7 @@
     # IPTABLES NAT + forwarding
     # -----------------------------
     - name: Enable NAT (MASQUERADE) on public interface
-      ansible.posix.iptables:
+      community.general.iptables:
         table: nat
         chain: POSTROUTING
         out_interface: "{{ public_iface }}"
@@ -44,7 +39,7 @@
         state: present
 
     - name: Allow forwarding from private to public
-      ansible.posix.iptables:
+      community.general.iptables:
         chain: FORWARD
         in_interface: "{{ private_iface }}"
         out_interface: "{{ public_iface }}"
@@ -52,7 +47,7 @@
         state: present
 
     - name: Allow established connections from public to private
-      ansible.posix.iptables:
+      community.general.iptables:
         chain: FORWARD
         in_interface: "{{ public_iface }}"
         out_interface: "{{ private_iface }}"
