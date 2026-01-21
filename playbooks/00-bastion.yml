@@ -6,7 +6,8 @@
   collections:
     - ansible.posix
     - community.crypto
-    
+    - community.general
+
   vars:
     private_iface: enp7s0
     public_iface: eth0
