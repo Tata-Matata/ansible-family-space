@@ -1,0 +1,105 @@
+---
+###############################################################################
+# Generate bootstrap TLS CA (Bastion only)
+#
+# Purpose:
+#   - Create a short-lived internal TLS CA used ONLY for:
+#       * Vault API TLS
+#       * Vault -> Consul TLS
+#
+# Guarantees:
+#   - CA private key exists ONLY on Bastion
+#   - CA validity is intentionally short-lived 
+###############################################################################
+
+- name: Assert bootstrap CA key does not already exist
+  stat:
+    path: "{{ bootstrap_tls_dir }}/ca.key"
+  register: existing_ca_key
+  changed_when: false
+
+- name: Fail if bootstrap CA key already exists
+  fail:
+    msg: >
+      Bootstrap CA private key already exists.
+      Refusing to reuse an existing CA.
+  when: existing_ca_key.stat.exists
+
+
+- name: Ensure bootstrap TLS directory exists
+  file:
+    path: "{{ bootstrap_tls_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+###############################################################################
+# CA private key
+###############################################################################
+
+- name: Generate bootstrap TLS CA private key
+  community.crypto.openssl_privatekey:
+    path: "{{ bootstrap_tls_dir }}/ca.key"
+    type: ed25519
+    owner: root
+    group: root
+    mode: "0600"
+  register: bootstrap_ca_key
+
+
+  ###############################################################################
+# CA certificate
+###############################################################################
+
+- name: Generate bootstrap TLS CA certificate
+  community.crypto.openssl_certificate:
+    path: "{{ bootstrap_tls_dir }}/ca.pem"
+    privatekey_path: "{{ bootstrap_tls_dir }}/ca.key"
+    provider: selfsigned
+    selfsigned_not_after: "+{{ bootstrap_ca_ttl_days }}d"
+    subject:
+      common_name: "vault-bootstrap-tls-ca"
+      organization_name: "internal"
+    basic_constraints:
+      - "CA:TRUE"
+    key_usage:
+      - keyCertSign
+      - cRLSign
+    owner: root
+    group: root
+    mode: "0644"
+  register: bootstrap_ca_cert
+
+
+###############################################################################
+# Sanity assertions
+###############################################################################
+
+- name: Assert bootstrap CA TTL is within allowed bounds
+  assert:
+    that:
+      - bootstrap_ca_ttl_days | int <= 14
+    fail_msg: >
+      Bootstrap TLS CA TTL is too long.
+      This CA must be short-lived by design (<= 14 days).
+
+
+- name: Assert bootstrap CA files exist
+  stat:
+    path: "{{ item }}"
+  loop:
+    - "{{ bootstrap_tls_dir }}/ca.key"
+    - "{{ bootstrap_tls_dir }}/ca.pem"
+  register: bootstrap_ca_files
+  changed_when: false
+
+
+- name: Fail if bootstrap CA files are missing
+  fail:
+    msg: >
+      Bootstrap TLS CA generation failed. Required files are missing.
+  when: bootstrap_ca_files.results
+        | selectattr('stat.exists', 'equalto', false)
+        | list
+        | length > 0

@@ -1,16 +1,17 @@
 ui = true
 
 storage "consul" {
-  address = "{{ vault_consul_address }}"
+  address = "{{ vault_consul_hosts[0] }}:{{ vault_consul_port }}"
   path    = "{{ vault_consul_path }}"
 }
 
 listener "tcp" {
   address     = "0.0.0.0:{{ vault_api_port }}"
-  tls_disable = 1
+  tls_disable = {{ vault_tls_disable | default(1) }}
 }
 
-api_addr     = "{{ vault_api_addr }}"
-cluster_addr = "http://{{ vault_cluster_addr }}:8201"
+api_addr = "{{ vault_api_scheme | default('http') }}://{{ vault_private_ip }}:{{ vault_api_port }}"
+cluster_addr = "{{ vault_api_scheme | default('http') }}://{{ vault_private_ip }}:{{ vault_cluster_port }}"
 
 disable_mlock = true
+

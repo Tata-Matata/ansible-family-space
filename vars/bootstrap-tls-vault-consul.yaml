@@ -1,0 +1,5 @@
+# Bootstrap TLS phase configuration
+# Used ONLY by 03-bootstrap-tls-vault.yaml
+
+bootstrap_tls_dir: /var/lib/bootstrap-tls
+bootstrap_ca_ttl_days: 7

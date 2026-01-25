@@ -1,3 +1,25 @@
+- name: Install Vault systemd unit
+  copy:
+    dest: /etc/systemd/system/vault.service
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=Vault
+      Requires=network-online.target
+      After=network-online.target
+
+      [Service]
+      User={{ vault_user }}
+      Group={{ vault_group }}
+      ExecStart={{ vault_binary_path }} server -config={{ vault_config_dir }}
+      Restart=on-failure
+      LimitNOFILE=65536
+      CapabilityBoundingSet=CAP_IPC_LOCK
+      AmbientCapabilities=CAP_IPC_LOCK
+
+      [Install]
+      WantedBy=multi-user.target
+      
 - name: Reload systemd
   systemd:
     daemon_reload: yes
@@ -8,11 +30,13 @@
     enabled: yes
     state: started
 
-- name: Wait for Vault HTTP API
+- name: Wait for Vault API to respond
   uri:
-    url: http://{{ vault_api_addr }}/v1/status/leader
+    url: "{{ vault_api_scheme | default('http') }}://127.0.0.1:{{ vault_api_port }}/v1/sys/health"
     method: GET
-  register: vault_leader
+    status_code: [200, 429, 501]
+  register: vault_health
   retries: 10
   delay: 3
-  until: vault_leader.status == 200
+  until: vault_health.status in [200, 429, 501]
+  changed_when: false

@@ -5,17 +5,11 @@ vault_group: vault
 
 vault_data_dir: /opt/vault/data
 vault_config_dir: /etc/vault.d
-vault_install_dir: /usr/local/bin/vault
+vault_install_dir: /usr/local/bin
+vault_binary_path: "{{ vault_install_dir }}/vault"
 
-vault_api_port: 8200
-vault_cluster_port: 8201
 
-# Build Consul address list dynamically
-vault_consul_hosts: "{{ groups['consul'] | default([]) }}"
-vault_consul_port: 8500
 vault_consul_path: "vault/"
 
-# Vault network identity
-vault_private_ip: "{{ ansible_default_ipv4.address }}"
-vault_api_addr: "https://{{ vault_private_ip }}:{{ vault_api_port }}"
-vault_cluster_addr: "https://{{ vault_private_ip }}:{{ vault_cluster_port }}"
+
+vault_tls_dir: "{{ vault_config_dir }}/tls"

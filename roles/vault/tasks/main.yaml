@@ -1,3 +1,12 @@
+- name: Assert exactly one primary Bastion exists
+  assert:
+    that:
+      - bastion_primary_hosts | length == 1
+    fail_msg: >
+      Exactly one bastion must have bastion_primary: true.
+      Found {{ bastion_primary_hosts | length }}.
+  run_once: true
+
 # Firewall
 # Otherwise responses to HTTP requests from Consul and Bastion will be dropped
 - name: Allow established connections

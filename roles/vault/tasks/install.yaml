@@ -28,22 +28,40 @@
     - "{{ vault_data_dir }}"
     - "{{ vault_config_dir }}"
 
-- name: Download Vault
-  get_url:
-    url: "https://releases.hashicorp.com/vault/{{ vault_version }}/vault_{{ vault_version }}_linux_amd64.zip"
-    dest: "{{ vault_tmp_zip}}"
-    mode: "0644"
+- name: Check installed Vault version
+  command: "{{ vault_binary_path }} version"
+  register: vault_installed_version
+  failed_when: false
+  changed_when: false
 
-- name: Unzip Vault
-  unarchive:
-    src: "{{ vault_tmp_zip}}"
-    dest: /usr/local/bin/
-    remote_src: yes
-    creates: "{{ vault_install_dir }}"
+- name: Determine whether Vault upgrade is needed
+  set_fact:
+    vault_upgrade_needed: >-
+      {{
+        vault_installed_version.rc != 0 or
+        vault_version not in vault_installed_version.stdout
+      }}
+  changed_when: false
+
+- block:
+    - name: Download Vault
+      get_url:
+        url: "https://releases.hashicorp.com/vault/{{ vault_version }}/vault_{{ vault_version }}_linux_amd64.zip"
+        dest: "{{ vault_tmp_zip }}"
+        mode: "0644"
+
+    - name: Unzip Vault (upgrade binary)
+      unarchive:
+        src: "{{ vault_tmp_zip }}"
+        dest: "{{ vault_install_dir }}"
+        remote_src: yes
+  when: vault_upgrade_needed
+  notify: restart vault
+
 
 - name: Set Vault binary permissions
   file:
-    path: "{{ vault_install_dir }}"
+    path: "{{ vault_binary_path }}"
     owner: root
     group: root
     mode: "0755"

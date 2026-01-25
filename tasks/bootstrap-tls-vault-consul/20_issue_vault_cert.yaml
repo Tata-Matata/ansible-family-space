@@ -1,0 +1,101 @@
+---
+###############################################################################
+# Issue Vault server TLS certificate (Bastion only)
+#
+# Purpose:
+#   - Generate Vault private key
+#   - Create CSR with correct SANs
+#   - Sign CSR using bootstrap TLS CA
+#
+# Inputs (expected to exist):
+#   - {{ bootstrap_tls_dir }}/ca/ca.key
+#   - {{ bootstrap_tls_dir }}/ca/ca.pem
+#
+# Outputs:
+#   - {{ bootstrap_tls_dir }}/vault/vault.key
+#   - {{ bootstrap_tls_dir }}/vault/vault.csr
+#   - {{ bootstrap_tls_dir }}/vault/vault.pem
+###############################################################################
+
+###############################################################################
+# Directory layout
+###############################################################################
+
+- name: Ensure Vault TLS directory exists (on Bastion)
+  file:
+    path: "{{ bootstrap_tls_dir }}/vault/{{ vault_host }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+
+###############################################################################
+# Vault private key
+###############################################################################
+
+- name: Generate Vault TLS private key
+  community.crypto.openssl_privatekey:
+    path: "{{ bootstrap_tls_dir }}/vault/{{ vault_host }}/vault.key"
+    type: ed25519
+    owner: root
+    group: root
+    mode: "0600"
+
+###############################################################################
+# Build SAN list for Vault certificate
+###############################################################################
+
+- name: Build Vault certificate SANs
+  set_fact:
+    vault_tls_sans:
+      - "DNS:{{ vault_host }}"
+      - "IP:{{ hostvars[vault_host].ansible_default_ipv4.address }}"
+  changed_when: false
+
+
+###############################################################################
+# Certificate Signing Request (CSR)
+###############################################################################
+
+- name: Generate Vault TLS CSR
+  community.crypto.openssl_csr:
+    path: "{{ bootstrap_tls_dir }}/vault/{{ vault_host }}/vault.csr"
+    privatekey_path: "{{ bootstrap_tls_dir }}/vault/{{ vault_host }}/vault.key"
+    subject:
+      common_name: "{{ vault_host }}"
+      organization_name: "vault"
+    subject_alt_name: "{{ vault_tls_sans }}"
+
+
+###############################################################################
+# Sign Vault certificate with bootstrap CA
+###############################################################################
+
+- name: Sign Vault TLS certificate with bootstrap CA
+  community.crypto.openssl_certificate:
+    path: "{{ bootstrap_tls_dir }}/vault/{{ vault_host }}/vault.pem"
+    csr_path: "{{ bootstrap_tls_dir }}/vault/{{ vault_host }}/vault.csr"
+    provider: ownca
+    ownca_path: "{{ bootstrap_tls_dir }}/ca.pem"
+    ownca_privatekey_path: "{{ bootstrap_tls_dir }}/ca.key"
+    ownca_not_after: "+{{ bootstrap_ca_ttl_days }}d"
+
+
+###############################################################################
+# Sanity checks
+###############################################################################
+
+- name: Assert Vault TLS certificate was created
+  stat:
+    path: "{{ bootstrap_tls_dir }}/vault/vault.pem"
+  register: vault_cert_stat
+  changed_when: false
+
+
+- name: Fail if Vault TLS certificate is missing
+  fail:
+    msg: >
+      Vault TLS certificate was not created.
+      Bootstrap TLS process cannot continue.
+  when: not vault_cert_stat.stat.exists

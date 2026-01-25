@@ -14,6 +14,7 @@ bastion:
     bastion-1:
       ansible_connection: local
       bastion_private_ip: 10.50.1.5
+      bastion_primary: true # for future HA setups in case we need to run some tasks on only one bastion
 
 k8s_controlplane:
   hosts:

@@ -1,0 +1,79 @@
+---
+###############################################################################
+# Pre-flight checks for Vault TLS bootstrap
+#
+# This file enforces that we are in the correct lifecycle phase:
+#   - Vault is installed and reachable over HTTP (NOT HTTPS yet)
+#   - Vault is NOT initialized
+#   - Bootstrap TLS has NOT already been applied
+#
+# This file MUST NOT change system state.
+###############################################################################
+
+- name: Check Vault health endpoint (pre-TLS)
+  uri:
+    url: >-
+      {{ vault_api_scheme | default('http') }}://127.0.0.1:{{ vault_api_port }}/v1/sys/health
+    status_code: [200, 429, 501]
+  register: vault_health
+  changed_when: false # This task observes state; it never mutates state
+
+# Vault returns this kind of response
+# {
+#  "initialized": false,
+#  "sealed": true,
+#  "standby": false,
+#  "performance_standby": false,
+#  "replication_performance_mode": "disabled",
+#  "replication_dr_mode": "disabled",
+#  "server_time_utc": 1736851200,
+#  "version": "1.21.2",
+#  "cluster_name": "vault-cluster-3f9c",
+#  "cluster_id": "9d8c2f5a-3eaf-4a6e-bc1e-0e93b5d5e3d1"
+# }
+
+# Vault uses HTTP status codes on health endpoint - as state signals, not just success/failure.
+# 200  = active, uninitialized (single node)
+# 429  = standby node or sealed but initialized (HA cases later)
+# 501  = not initialized
+#
+# Any of these are acceptable *before* init.
+
+- name: Assert Vault API scheme is HTTP (pre-TLS)
+  assert:
+    that:
+      - vault_api_scheme | default('http') == 'http'
+    fail_msg: >
+      Vault API is already using HTTPS.
+      Bootstrap TLS must not be applied twice.
+  changed_when: false
+
+- name: Fail if Vault is already initialized
+  fail:
+    msg: >
+      Vault is already initialized.
+      Bootstrap TLS must not be applied after initialization.
+  when: vault_health.json.initialized | bool
+
+
+- name: Assert Vault is sealed (expected before init)
+  assert:
+    that:
+      - vault_health.json.sealed | bool
+    fail_msg: >
+      Vault is unsealed. Bootstrap TLS expects Vault to be sealed and
+      uninitialized.
+  changed_when: false
+
+###############################################################################
+# Sanity checks 
+###############################################################################
+
+- name: Assert Vault HTTP listener is still active
+  assert:
+    that:
+      - vault_health.status in [200, 429, 501]
+    fail_msg: >
+      Vault HTTP endpoint is not reachable.
+      TLS bootstrap expects Vault to be running over HTTP.
+  changed_when: false

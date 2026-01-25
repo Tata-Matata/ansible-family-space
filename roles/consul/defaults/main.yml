@@ -12,3 +12,6 @@ consul_client_addr: "{{ ansible_default_ipv4.address }}"
 consul_advertise_addr: "{{ ansible_default_ipv4.address }}"
 
 consul_log_level: INFO
+
+
+consul_tls_dir: /etc/consul.d/tls

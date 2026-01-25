@@ -1,0 +1,109 @@
+---
+###############################################################################
+# Distribute bootstrap TLS material to Vault and Consul
+#
+# Purpose:
+#   - Copy TLS artifacts generated on Bastion to target hosts
+#   - Enforce correct ownership and permissions
+#
+# Guarantees:
+#   - CA private key NEVER leaves Bastion
+#   - Vault receives:
+#       * CA cert
+#       * Vault server cert
+#       * Vault private key
+#   - Consul receives:
+#       * CA cert only
+
+###############################################################################
+
+###############################################################################
+# TLS directories on target hosts
+###############################################################################
+
+- name: Ensure Vault TLS directory exists
+  file:
+    path: "{{ vault_tls_dir }}"
+    state: directory
+    owner: vault
+    group: vault
+    mode: "0750"
+
+
+###############################################################################
+# Distribute CA certificate from primary Bastion to Vault
+###############################################################################
+- name: Copy CA certificate to Vault
+  copy:
+    src: "{{ bootstrap_tls_dir }}/ca.pem"
+    dest: "{{ vault_tls_dir }}/ca.pem"
+    owner: root
+    group: root
+    mode: "0644"
+    remote_src: yes # The source file lives on the delegated host, not the target
+  delegate_to: "{{ bastion_primary_host }}"
+
+
+###############################################################################
+# Distribute Vault server certificate & key  from primary Bastion to Vault
+###############################################################################
+
+- name: Copy Vault TLS certificate
+  copy:
+    src: "{{ bootstrap_tls_dir }}/vault/{{ inventory_hostname }}/vault.pem"
+    dest: "{{ vault_tls_dir }}/vault.pem"
+    owner: vault
+    group: vault
+    mode: "0644"
+    remote_src: yes
+  delegate_to: "{{ bastion_primary_host }}"
+
+- name: Copy Vault TLS private key
+  copy:
+    src: "{{ bootstrap_tls_dir }}/vault/{{ inventory_hostname }}/vault.key"
+    dest: "{{ vault_tls_dir }}/vault.key"
+    owner: vault
+    group: vault
+    mode: "0600"
+    remote_src: yes
+  delegate_to: "{{ bastion_primary_host }}"
+
+###############################################################################
+# Sanity checks on Vault
+###############################################################################
+
+- name: Assert CA certificate present on Vault
+  stat:
+    path: "{{ vault_tls_dir }}/ca.pem"
+  register: ca_cert_stat
+  changed_when: false
+
+
+- name: Fail if CA certificate missing
+  fail:
+    msg: >
+      CA certificate missing on {{ inventory_hostname }}.
+      TLS bootstrap cannot proceed.
+  when: not ca_cert_stat.stat.exists
+
+
+- name: Assert Vault TLS key & cert present
+  stat:
+    path: "{{ item }}"
+  loop:
+    - "{{ vault_tls_dir }}/vault.pem"
+    - "{{ vault_tls_dir }}/vault.key"
+  register: vault_tls_files
+  changed_when: false
+
+
+- name: Fail if Vault TLS material missing
+  fail:
+    msg: >
+      Vault TLS certificate or key missing on {{ inventory_hostname }}.
+      TLS bootstrap cannot proceed.
+  when: >
+    vault_tls_files.results
+    | selectattr('stat.exists', 'equalto', false)
+    | list
+    | length > 0

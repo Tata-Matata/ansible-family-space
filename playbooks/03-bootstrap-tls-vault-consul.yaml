@@ -1,0 +1,117 @@
+##### On Bastion
+# - Generate short-lived bootstrap TLS CA
+# - Generate: Vault server key + cert
+# - Hold CA private key temporarily
+##### On Vault
+# - Install TLS material
+# - Rewrite Vault config: listener → HTTPS, api_addr → HTTPS
+# - Restart Vault
+#### On Consul
+# Install CA certificate
+# Rewrite Consul config: HTTP → HTTPS (API), Restart Consul
+
+
+# Should fail if Vault already has TLS enabled
+# The playbook must never be rerun after TLS bootstrap is completed
+- name: Pre-flight checks on Vault
+  hosts: vault
+  gather_facts: false
+  become: false
+
+  tasks:
+    - name: Health check on Vault http endpoint and initialization status
+      block:
+        - import_tasks: ../tasks/bootstrap-tls-vault-consul/00_preflight_checks.yaml
+
+- name: Pre-flight bootstrap marker check on Bastion
+  hosts: bastion
+  gather_facts: false
+  become: false 
+  vars_files:
+  - ../vars/bootstrap-tls-vault-consul.yaml
+  tasks:
+  - name: Check bootstrap marker file exists on Bastion
+    block:
+      - import_tasks: ../tasks/bootstrap-tls-vault-consul/00_preflight_checks_bastion_marker.yaml
+
+# CA private key, CA certificate + TTL on Bastion
+# Vault private key, CSR with SANs (Vault private IP + Vault hostname), Cert signed by bootstrap CA
+- name: Generate "bootstrap" TLS CA and Vault certs
+  hosts: "{{ bastion_primary_host }}"
+  connection: local
+  gather_facts: false
+  become: true
+  vars_files:
+  - ../vars/bootstrap-tls-vault-consul.yaml
+  tasks:
+
+    # CA generation (once)
+    - name: Generate bootstrap TLS CA
+      import_tasks: ../tasks/bootstrap-tls-vault-consul/10_generate_ca.yaml
+
+    # Vault cert issuance (per Vault host)
+    - name: Issue Vault TLS certificates
+      import_tasks: ../tasks/bootstrap-tls-vault-consul/20_issue_vault_cert.yaml
+      loop: "{{ groups['vault'] }}"
+      loop_control:
+        loop_var: vault_host
+
+# Distribute Vault TLS material from Bastion to Vault
+- name: Install Vault TLS material
+  hosts: vault
+  gather_facts: true
+  become: true
+  vars_files:
+    - ../vars/bootstrap-tls-vault-consul.yaml
+
+  tasks:
+    - name: Install Vault TLS material
+      import_tasks: ../tasks/bootstrap-tls-vault-consul/30_distribute_tls_vault.yaml
+
+# Distribute Consul TLS material from Bastion to Consul
+- name: Install Consul TLS material
+  hosts: consul
+  gather_facts: true
+  become: true
+  vars_files:
+    - ../vars/bootstrap-tls-vault-consul.yaml
+
+  tasks:
+    - name: Install Consul TLS material
+      import_tasks: ../tasks/bootstrap-tls-vault-consul/31_distribute_tls_consul.yaml
+
+# Reconfigure Vault + Consul to use TLS
+- name: Enable TLS in Vault
+  hosts: vault
+  gather_facts: false
+  become: true
+  tasks:
+    - import_tasks: ../tasks/bootstrap-tls-vault-consul/40_reconfigure_vault.yaml
+
+
+- name: Enable TLS in Consul
+  hosts: consul
+  gather_facts: false
+  become: true
+  tasks:
+    - import_tasks: ../tasks/bootstrap-tls-vault-consul/41_reconfigure_consul.yaml
+
+
+# HTTPS health check on Vault, mark bootstrap as complete
+# CA validation
+- name: Verify TLS and record bootstrap completion
+  hosts: vault
+  gather_facts: false
+  become: false
+
+  tasks:
+    - name: Verify TLS is active and mark completion
+      block:
+        - import_tasks: ../tasks/bootstrap-tls-vault-consul/90_verify_and_mark.yaml
+
+
+# Change Vault API scheme to HTTPS for subsequent plays
+# The initial value is defined in group_vars/ as "http"
+- name: Persist Vault API scheme as HTTPS for subsequent plays
+  set_fact:
+    vault_api_scheme: https
