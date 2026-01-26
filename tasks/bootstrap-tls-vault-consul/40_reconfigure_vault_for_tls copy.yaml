@@ -1,0 +1,107 @@
+###############################################################################
+# Enable TLS on Vault listener
+#
+# Preconditions:
+#   - Vault is installed, uninitialized, sealed
+#   - Vault is currently reachable over HTTP
+#   - TLS material has already been distributed:
+#       * {{ vault_tls_dir }}/ca.pem
+#       * {{ vault_tls_dir }}/vault.pem
+#       * {{ vault_tls_dir }}/vault.key
+#
+# Guarantees:
+#   - Vault API is switched from HTTP → HTTPS
+#   - Vault remains reachable after restart
+#   - No initialization or unseal is performed
+###############################################################################
+
+###############################################################################
+# Pre-flight checks (defensive)
+###############################################################################
+
+- name: Assert Vault TLS CA certificate exists
+  stat:
+    path: "{{ vault_tls_dir }}/ca.pem"
+  register: vault_ca_cert
+  changed_when: false
+
+- name: Assert Vault TLS server certificate exists
+  stat:
+    path: "{{ vault_tls_dir }}/vault.pem"
+  register: vault_server_cert
+  changed_when: false
+
+- name: Assert Vault TLS private key exists
+  stat:
+    path: "{{ vault_tls_dir }}/vault.key"
+  register: vault_server_key
+  changed_when: false
+
+- name: Fail if Vault TLS material is missing
+  fail:
+    msg: >
+      Vault TLS material is missing on {{ inventory_hostname }}.
+      Cannot enable TLS safely. File status:
+        - CA certificate ({{ vault_tls_dir }}/ca.pem):
+            exists = {{ vault_ca_cert.stat.exists | default(false) }}
+        - Vault certificate ({{ vault_tls_dir }}/vault.pem):
+            exists = {{ vault_server_cert.stat.exists | default(false) }}
+        - Vault private key ({{ vault_tls_dir }}/vault.key):
+            exists = {{ vault_server_key.stat.exists | default(false) }}
+  when: >
+    not vault_ca_cert.stat.exists or
+    not vault_server_cert.stat.exists or
+    not vault_server_key.stat.exists
+
+
+###############################################################################
+# Reconfigure Vault listener for TLS
+###############################################################################
+
+- name: Switch Vault API scheme to HTTPS
+  set_fact:
+    vault_api_scheme: https
+
+###############################################################################
+# Re-create Vault configuration file with TLS enabled
+###############################################################################
+- name: Re-render Vault configuration with TLS enabled
+  import_role:
+    name: vault
+    tasks_from: configure
+
+###############################################################################
+# Restart Vault to apply TLS
+###############################################################################
+
+- name: Re-start Vault
+  import_role:
+    name: vault
+    tasks_from: restart
+
+
+###############################################################################
+# Post-flight validation (HTTPS only)
+###############################################################################
+
+- name: Wait for Vault HTTPS health endpoint
+  uri:
+    url: "https://127.0.0.1:{{ vault_api_port }}{{ vault_api_health_path }}"
+    method: GET
+    status_code: [200, 429, 501]
+    ca_path: "{{ vault_tls_dir }}/ca.pem"
+    validate_certs: true
+  register: vault_https_health
+  retries: 10
+  delay: 3
+  until: vault_https_health.status in [200, 429, 501]
+  changed_when: false
+
+
+- name: Fail if Vault HTTPS health check did not succeed
+  fail:
+    msg: >
+      Vault did not become reachable over HTTPS after TLS enablement.
+      Manual intervention required.
+
+

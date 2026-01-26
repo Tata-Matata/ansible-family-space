@@ -5,7 +5,12 @@ data_dir = "{{ consul_data_dir }}"
 
 server = true
 bootstrap_expect = 1
+log_level = "{{ consul_log_level }}"
+ui = false
 
+#########################
+# ADDRESSES #############
+#########################
 # Controls Serf gossip (LAN), Raft, RPC between Consul agents
 # Used by Other Consul nodes, Vault (as a Consul client), never by humans
 # Does not affect HTTP or DNS API
@@ -20,7 +25,14 @@ client_addr = "{{ consul_client_addr }}"
 # the address other nodes should use to reach me
 advertise_addr = "{{consul_advertise_addr }}"
 
-log_level = "{{ consul_log_level }}"
 
-ui = false
 
+#########################
+# TLS with Vault ########
+#########################
+
+{% if consul_tls_enabled | default(false) %}
+verify_outgoing = true
+verify_incoming = false
+ca_file = "{{ consul_tls_dir }}/ca.pem"
+{% endif %}

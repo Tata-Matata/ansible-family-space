@@ -1,0 +1,65 @@
+###############################################################################
+# Enable TLS verification in Consul (client-side)
+#
+# Preconditions:
+#   - Consul is installed and running
+#   - Bootstrap CA certificate has been distributed:
+#       * {{ consul_tls_dir }}/ca.pem
+#
+# Guarantees:
+#   - Consul verifies TLS connections using the bootstrap CA
+#   - No Consul server TLS is enabled yet
+#   - Consul is restarted explicitly and validated
+###############################################################################
+
+###############################################################################
+# Pre-flight checks
+###############################################################################
+
+- name: Assert Consul CA certificate exists
+  stat:
+    path: "{{ consul_tls_dir }}/ca.pem"
+  register: consul_ca_cert
+  changed_when: false
+
+
+- name: Fail if Consul CA certificate is missing
+  fail:
+    msg: >
+      Consul CA certificate is missing on {{ inventory_hostname }}.
+      Cannot enable TLS verification safely.
+
+      Expected file:
+        - {{ consul_tls_dir }}/ca.pem
+  when: not consul_ca_cert.stat.exists
+
+
+###############################################################################
+# Reconfigure Consul for TLS verification
+###############################################################################
+
+- name: Re-render Consul configuration with TLS verification enabled
+  import_role:
+    name: consul
+    tasks_from: configure
+
+
+###############################################################################
+# Restart Consul explicitly
+###############################################################################
+
+- name: Restart Consul
+  import_role:
+    name: consul
+    tasks_from: restart
+
+
+###############################################################################
+# Post-flight sanity check
+###############################################################################
+
+- name: Verify Consul service is running
+  systemd:
+    name: consul
+    state: started
+  changed_when: false

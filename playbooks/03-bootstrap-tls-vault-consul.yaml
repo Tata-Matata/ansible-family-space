@@ -86,7 +86,7 @@
   gather_facts: false
   become: true
   tasks:
-    - import_tasks: ../tasks/bootstrap-tls-vault-consul/40_reconfigure_vault.yaml
+    - import_tasks: ../tasks/bootstrap-tls-vault-consul/40_reconfigure_vault_for_tls.yaml
 
 
 - name: Enable TLS in Consul
@@ -94,7 +94,7 @@
   gather_facts: false
   become: true
   tasks:
-    - import_tasks: ../tasks/bootstrap-tls-vault-consul/41_reconfigure_consul.yaml
+    - import_tasks: ../tasks/bootstrap-tls-vault-consul/41_reconfigure_consul_for_tls.yaml
 
 
 # HTTPS health check on Vault, mark bootstrap as complete

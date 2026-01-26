@@ -7,7 +7,14 @@ storage "consul" {
 
 listener "tcp" {
   address     = "0.0.0.0:{{ vault_api_port }}"
-  tls_disable = {{ vault_tls_disable | default(1) }}
+  {% if vault_api_scheme == 'https' %}
+  tls_disable = 0
+  tls_cert_file = "{{ vault_tls_dir }}/vault.pem"
+  tls_key_file  = "{{ vault_tls_dir }}/vault.key"
+  tls_client_ca_file = "{{ vault_tls_dir }}/ca.pem"
+  {% else %}
+  tls_disable = 1
+  {% endif %}
 }
 
 api_addr = "{{ vault_api_scheme | default('http') }}://{{ vault_private_ip }}:{{ vault_api_port }}"

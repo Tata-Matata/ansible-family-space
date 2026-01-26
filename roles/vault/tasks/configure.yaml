@@ -5,5 +5,4 @@
     owner: "{{ vault_user }}"
     group: "{{ vault_group }}"
     mode: "0640"
-  notify: restart vault
 
