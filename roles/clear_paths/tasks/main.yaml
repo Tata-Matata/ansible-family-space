@@ -16,7 +16,7 @@
   ansible.builtin.find:
     paths: "{{ clear_path }}"
     file_type: any
-    hidden: "{{ clear_path_hidden }}"
+    hidden: true
     recurse: false
   register: _clear_children
 
