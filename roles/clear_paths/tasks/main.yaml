@@ -1,0 +1,44 @@
+---
+- name: Validate clear_path (never delete / or empty)
+  ansible.builtin.assert:
+    that:
+      - clear_path is string
+      - clear_path | trim | length > 5
+      - clear_path | trim != "/"
+    fail_msg: "Unsafe clear_path: {{ clear_path }}"
+
+- name: Ensure directory exists (directory is kept)
+  ansible.builtin.file:
+    path: "{{ clear_path }}"
+    state: directory
+
+- name: Find immediate children under directory (no recursion)
+  ansible.builtin.find:
+    paths: "{{ clear_path }}"
+    file_type: any
+    hidden: "{{ clear_path_hidden }}"
+    recurse: false
+  register: _clear_children
+
+- name: Debug - list what will be deleted
+  ansible.builtin.debug:
+    msg:
+      root: "{{ clear_path }}"
+      files_to_delete: "{{ (_clear_children.files | default([])) | map(attribute='path') | list }}"
+      dirs_to_delete: "{{ (_clear_children.directories | default([])) | map(attribute='path') | list }}"
+
+- name: Delete files directly under directory
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ _clear_children.files | default([]) }}"
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: Delete directories directly under directory (recursive delete by file module)
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ _clear_children.directories | default([]) }}"
+  loop_control:
+    label: "{{ item.path }}"

@@ -1,0 +1,95 @@
+---
+### Cleanup bootstrap TLS (break-glass)
+### DANGER: Removes bootstrap CA private key + all issued certs/keys generated in phase 1.
+### Use only if you need to redo TLS bootstrap from scratch.
+
+- name: Info / guard rail (choose what to run via extra-vars)
+  hosts: localhost
+  gather_facts: false
+  vars:
+    cleanup_bootstrap_tls: "{{ cleanup_bootstrap_tls | default('no') }}"
+    cleanup_nodes: "{{ cleanup_nodes | default('no') }}"
+  tasks:
+    - name: Show selected cleanup mode
+      ansible.builtin.debug:
+        msg:
+          - "cleanup_bootstrap_tls={{ cleanup_bootstrap_tls }} (bastion_primary CA/PKI cleanup)"
+          - "cleanup_nodes={{ cleanup_nodes }} (vault/consul/bastion client cleanup)"
+          - "Run both = do all"
+
+
+- name: Remove bootstrap PKI material on Bastion primary (CA + issued certs)
+  hosts: bastion_primary
+  gather_facts: false
+  become: true
+  vars_files:
+    - ../vars/bootstrap-tls-vault-consul.yaml
+  vars:
+    cleanup_bootstrap_tls: "{{ cleanup_bootstrap_tls | default('no') }}"
+    _cleanup_dirs:
+      - "{{ bastion_tls_dir }}"
+      - "{{ bastion_tmp_tls_dir }}"
+  tasks:
+  - name: Clear directory contents (keep root)
+    ansible.builtin.include_role:
+      name: clear_paths
+    vars:
+      clear_path: "{{ item }}"
+    loop: "{{ _cleanup_dirs }}"
+    loop_control:
+      label: "{{ item }}"
+
+
+- name: Remove distributed bootstrap TLS artifacts from Vault hosts
+  hosts: vault
+  gather_facts: false
+  become: true
+  vars:
+    cleanup_nodes: "{{ cleanup_nodes | default('no') }}"
+  tasks:
+    - name: Skip unless cleanup_nodes=yes
+      when: cleanup_nodes != 'yes'
+      ansible.builtin.meta: end_play
+
+    - name: Clear directory contents (keep root)
+      ansible.builtin.include_role:
+        name: clear_paths
+      vars:
+        clear_path: "{{ vault_tls_dir }}"
+
+
+- name: Remove distributed bootstrap TLS artifacts from Consul hosts
+  hosts: consul
+  gather_facts: false
+  become: true
+  vars:
+    cleanup_nodes: "{{ cleanup_nodes | default('no') }}"
+  tasks:
+    - name: Skip unless cleanup_nodes=yes
+      when: cleanup_nodes != 'yes'
+      ansible.builtin.meta: end_play
+
+    - name: Clear directory contents (keep root)
+      ansible.builtin.include_role:
+        name: clear_paths
+      vars:
+        clear_path: "{{ consul_tls_dir }}"
+
+
+
+- name: Remove distributed bootstrap TLS artifacts from Bastion hosts (client certs)
+  hosts: "bastion:!bastion_primary"
+  gather_facts: false
+  become: true
+  vars:
+    cleanup_nodes: "{{ cleanup_nodes | default('no') }}"
+  tasks:
+    - name: Skip unless cleanup_nodes=yes
+      when: cleanup_nodes != 'yes'
+      ansible.builtin.meta: end_play
+
+    - name: Clear directory contents (keep root)
+      ansible.builtin.include_role:
+        name: clear_paths
+      vars:
+        clear_path: "{{ bastion_tls_dir }}"
