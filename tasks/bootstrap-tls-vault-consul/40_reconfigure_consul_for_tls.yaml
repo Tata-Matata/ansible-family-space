@@ -85,4 +85,4 @@
 
   - name: Enable Consul TLS mode
     set_fact:
-    consul_tls_enabled: true
+      consul_tls_enabled: true
