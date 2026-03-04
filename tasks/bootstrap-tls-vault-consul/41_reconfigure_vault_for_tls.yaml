@@ -45,7 +45,7 @@
         type: file
         owner: "{{ vault_user }}"
         group: "{{ vault_group }}"
-        mode: "0640"
+        mode: "0644"
 
       - path: "{{ vault_tls_dir }}"
         type: directory
@@ -57,7 +57,7 @@
         type: file
         owner: "{{ vault_user }}"
         group: "{{ vault_group }}"
-        mode: "0640"
+        mode: "0644"
 
       - path: "{{ vault_client_auth_to_consul_key_path }}"
         type: file
