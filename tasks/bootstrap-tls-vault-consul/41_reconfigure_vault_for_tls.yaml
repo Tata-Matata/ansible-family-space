@@ -77,17 +77,11 @@
       name: vault
       state: stopped
 
-  - name: Enable Vault TLS mode
-    set_fact:
-      vault_tls_enabled: true
-
   - name: Render Vault config
-    template:
-      src: vault.hcl.j2
-      dest: /etc/vault.d/vault.hcl
-      owner: vault
-      group: vault
-      mode: "0640"
+    import_role:
+      name: vault
+      tasks_from: configure
+      
 
   - name: Start Vault
     systemd:
@@ -117,3 +111,7 @@
     delay: 3
     until: vault_https_health.status is defined
     changed_when: false
+
+  - name: Enable Vault TLS mode
+    set_fact:
+      vault_tls_enabled: true
