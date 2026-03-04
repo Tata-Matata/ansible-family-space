@@ -5,15 +5,19 @@
 consul_datacenter: dc1
 
 # internally used addresses
+# will work with gather_facts: false as well, 
+# since the value is derived from inventory variables 
+# with a fallback to inventory_hostname
+internal_address: "{{ ansible_host | default(inventory_hostname) }}"
 
 # local interface the Consul agent binds to
 # affects listeners and gossip
 # never used by other services directly
-consul_internal_bind_addr: "{{ ansible_default_ipv4.address }}"
+consul_internal_bind_addr: "{{ internal_address }}"
 
 # Consul internal – cluster identity
 # used only for Consul ↔ Consul communication
-consul_internal_advertise_addr: "{{ ansible_default_ipv4.address }}"
+consul_internal_advertise_addr: "{{ internal_address }}"
 
 # Installation and configuration
 consul_version: "1.22.2"
