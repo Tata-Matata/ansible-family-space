@@ -58,6 +58,9 @@
   ###############################################################################
   # Reconfigure Consul for TLS verification
   ###############################################################################
+  - name: Enable Consul TLS mode
+    set_fact:
+      consul_tls_enabled: true
 
   - name: Re-render Consul configuration with TLS verification enabled
     import_role:
@@ -83,6 +86,3 @@
       state: started
     changed_when: false
 
-  - name: Enable Consul TLS mode
-    set_fact:
-      consul_tls_enabled: true

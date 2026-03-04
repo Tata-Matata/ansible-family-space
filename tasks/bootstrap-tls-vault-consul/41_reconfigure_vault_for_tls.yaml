@@ -77,6 +77,11 @@
       name: vault
       state: stopped
 
+
+  - name: Enable Vault TLS mode
+    set_fact:
+      vault_tls_enabled: true
+      
   - name: Render Vault config
     import_role:
       name: vault
@@ -111,7 +116,3 @@
     delay: 3
     until: vault_https_health.status is defined
     changed_when: false
-
-  - name: Enable Vault TLS mode
-    set_fact:
-      vault_tls_enabled: true
