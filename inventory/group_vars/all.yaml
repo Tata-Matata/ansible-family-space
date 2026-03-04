@@ -81,8 +81,15 @@ vault_tls_enabled: false
 # HTTP or HTTPS depending on TLS phase
 vault_api_scheme: "{{ 'https' if vault_tls_enabled else 'http' }}"
 
+
+# internally used addresses
+# will work with gather_facts: false as well, 
+# since the value is derived from inventory variables 
+# with a fallback to inventory_hostname
+vault_internal_address: "{{ ansible_host | default(inventory_hostname) }}"
+
 vault_api_addr: "{{ vault_api_scheme }}://{{ vault_service_name }}:{{ vault_api_port }}"
-vault_cluster_addr: "{{ vault_api_scheme }}://{{ ansible_default_ipv4.address }}:{{ vault_cluster_port}}"
+vault_cluster_addr: "{{ vault_api_scheme }}://{{ vault_internal_address }}:{{ vault_cluster_port}}"
 
 ######################################################
 ######### Consul-Vault  ##############################
