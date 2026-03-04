@@ -9,6 +9,11 @@ vault_config_dir: /etc/vault.d
 vault_install_dir: /usr/local/bin
 vault_binary_path: "{{ vault_install_dir }}/vault"
 
+# internally used addresses
+# will work with gather_facts: false as well, 
+# since the value is derived from inventory variables 
+# with a fallback to inventory_hostname
+vault_internal_address: "{{ ansible_host | default(inventory_hostname) }}"
 
 # TLS configuration
 vault_tls_dir: "{{ vault_config_dir }}/tls"

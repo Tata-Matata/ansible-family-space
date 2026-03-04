@@ -95,7 +95,7 @@
   # 429 (sealed) or 501 (uninitialized) are expected
   - name: Wait for Vault HTTPS health endpoint
     uri:
-      url: "https://{{ ansible_default_ipv4.address }}:{{ vault_api_port }}/{{ vault_api_health_path }}"
+      url: "https://{{ vault_internal_address }}:{{ vault_api_port }}/{{ vault_api_health_path }}"
       method: GET
       status_code: [ 200, 429, 501 ]
       # for Ansible to validate the Vault server certificate
