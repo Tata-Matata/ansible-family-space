@@ -20,29 +20,15 @@ dns_entries:
     - "{{ groups['consul_servers'][0] }}"
     
 
-### Common TLS paths used by both Vault and Consul ###
-
-ca_cert_file: ca.pem
-ca_key_file: ca.key
-
-# Directory on Bastion hosts where client certificates for Bastion to auth to Consul and Vault are stored
-bastion_tls_dir: /etc/tls
-bastion_ca_cert_path: "{{ bastion_tls_dir }}/{{ ca_cert_file}}"
-bastion_ca_key_path: "{{ bastion_tls_dir }}/{{ ca_key_file}}"
-
-consul_client_key_file: consul-client.key
-consul_client_cert_file: consul-client.pem
-consul_server_key_file: consul.key
-consul_server_cert_file: consul.pem
-
-vault_client_key_file: vault-client.key
-vault_client_cert_file: vault-client.pem
-vault_server_key_file: vault-server.key
-vault_server_cert_file: vault-server.pem
 
 ######################################################
 ######### Consul  ####################################
 ######################################################
+# TLS lifecycle flag (flipped by bootstrap-tls playbook via set_fact)
+consul_tls_enabled: false
+
+# HTTP or HTTPS depending on TLS phase
+consul_agent_api_scheme: "{{ 'https' if consul_tls_enabled else 'http' }}"
 
 # internally used addresses
 # will work with gather_facts: false as well, 
@@ -61,9 +47,6 @@ consul_internal_advertise_addr: "{{ internal_address }}"
 
 consul_service_name: "consul.service.internal"
 
-# HTTP or HTTPS depending on TLS phase
-consul_agent_api_scheme: "{{ 'https' if consul_tls_enabled else 'http' }}"
-
 # Port of the Consul agent API (8501 = HTTPS, 8500 = HTTP)
 consul_http_port: 8500
 consul_https_port: 8501
@@ -71,41 +54,16 @@ consul_dns_port: 8600
 consul_agent_api_port: "{{ consul_https_port if consul_tls_enabled else consul_http_port }}"
 
 
-# Address advertised by the Consul agent for client access
-# HTTP/HTTPS API
+# Address advertised by the Consul agent for client access; HTTP/HTTPS API
 # used by Vault, Bastion, kubectl plugins, etc.
 consul_api_addr: "{{ consul_agent_api_scheme }}://{{ consul_service_name }}:{{ consul_agent_api_port }}"
-consul_api_leader_addr: "{{ consul_api_addr }}{{ consul_api_leader_path }}"
-consul_api_health_addr: "{{ consul_api_addr }}{{ consul_api_health_path }}"
-
-consul_api_health_path: /v1/agent/self
-consul_api_leader_path: /v1/status/leader
-
-
-
-
-
-
-# TLS lifecycle flag (flipped by bootstrap-tls playbook via set_fact)
-consul_tls_enabled: false
-
-# TLS configuration
-consul_tls_dir: /etc/consul.d/tls
-consul_server_cert_path: "{{ consul_tls_dir }}/{{ consul_server_cert_file }}"
-consul_server_key_path: "{{ consul_tls_dir }}/{{ consul_server_key_file }}"
-consul_ca_cert_path: "{{ consul_tls_dir }}/{{ ca_cert_file }}"
-
+consul_api_leader_addr: "{{ consul_api_addr }}/v1/agent/self"
+consul_api_health_addr: "{{ consul_api_addr }}/v1/status/leader"
 
 
 ######################################################
 ######### Vault  #####################################
 ######################################################
-vault_service_name: "vault.service.internal"
-
-vault_api_port: 8200
-vault_cluster_port: 8201
-
-vault_api_health_path: /v1/sys/health
 
 # TLS lifecycle flag (flipped by bootstrap-tls playbook via set_fact)
 vault_tls_enabled: false
@@ -113,24 +71,18 @@ vault_tls_enabled: false
 # HTTP or HTTPS depending on TLS phase
 vault_api_scheme: "{{ 'https' if vault_tls_enabled else 'http' }}"
 
-# TLS configuration
-vault_tls_dir: "{{ vault_config_dir }}/tls"
-vault_server_cert_path: "{{ vault_tls_dir }}/{{vault_server_cert_file}}"
-vault_server_key_path: "{{ vault_tls_dir }}/{{vault_server_key_file}}"
-vault_ca_cert_path: "{{ vault_tls_dir }}/{{ca_cert_file}}"
-vault_tmp_zip: /tmp/vault.zip
+vault_service_name: "vault.service.internal"
 
-# Vault as client to Consul (mTLS)
-vault_client_auth_to_consul_certs_dir: "{{ vault_tls_dir }}/consul-client-auth"
-vault_client_auth_to_consul_cert_path: "{{ vault_client_auth_to_consul_certs_dir }}/{{ consul_client_cert_file }}"
-vault_client_auth_to_consul_key_path: "{{ vault_client_auth_to_consul_certs_dir }}/{{ consul_client_key_file }}"
+vault_api_port: 8200
+vault_cluster_port: 8201
+
+vault_api_health_path: /v1/sys/health
 
 # internally used addresses
 # will work with gather_facts: false as well, 
 # since the value is derived from inventory variables 
 # with a fallback to inventory_hostname
 vault_internal_address: "{{ ansible_host | default(inventory_hostname) }}"
-
 vault_api_addr: "{{ vault_api_scheme }}://{{ vault_service_name }}:{{ vault_api_port }}"
 vault_cluster_addr: "{{ vault_api_scheme }}://{{ vault_internal_address }}:{{ vault_cluster_port}}"
 
@@ -142,14 +94,3 @@ vault_cluster_addr: "{{ vault_api_scheme }}://{{ vault_internal_address }}:{{ va
 vault_prefix_in_consul_store: "vault/"
 
 
-
-########## BASTION CONFIGURATION  ############################
-# Bastion auths as client to Vault
-bastion_client_auth_to_vault_certs_dir: "{{ bastion_tls_dir }}/vault-client"
-bastion_client_auth_to_vault_cert_path: "{{ bastion_client_auth_to_vault_certs_dir }}/{{ vault_client_cert_file }}"
-bastion_client_auth_to_vault_key_path: "{{ bastion_client_auth_to_vault_certs_dir }}/{{ vault_client_key_file }}"
-
-# Bastion auths as client to Consul
-bastion_client_auth_to_consul_certs_dir: "{{ bastion_tls_dir }}/consul-client"
-bastion_client_auth_to_consul_cert_path: "{{ bastion_client_auth_to_consul_certs_dir }}/{{ consul_client_cert_file }}"
-bastion_client_auth_to_consul_key_path: "{{ bastion_client_auth_to_consul_certs_dir }}/{{ consul_client_key_file }}"

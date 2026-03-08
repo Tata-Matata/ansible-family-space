@@ -38,7 +38,7 @@
 # export CONSUL_CLIENT_KEY={{ bastion_client_auth_to_consul_key_path }}
 ###############################################################################
 
-- name: Copy Bastion client certificate from primary Bastion to this Bastion
+- name: Copy Bastion's Consul-client certificate from primary Bastion to this Bastion
   copy:
     src: "{{ bastion_tmp_tls_dir_for_consul_clients }}/{{ inventory_hostname }}/{{ consul_client_cert_file }}"
     dest: "{{ bastion_client_auth_to_consul_cert_path }}"
@@ -46,7 +46,7 @@
     group: root
     mode: "0644"
 
-- name: Copy Bastion client private key from primary Bastion to this Bastion
+- name: Copy Bastion's Consul-client private key from primary Bastion to this Bastion
   copy:
     src: "{{ bastion_tmp_tls_dir_for_consul_clients }}/{{ inventory_hostname }}/{{ consul_client_key_file }}"
     dest: "{{ bastion_client_auth_to_consul_key_path }}"
@@ -65,7 +65,7 @@
 # export VAULT_CLIENT_KEY={{ bastion_client_auth_to_vault_key_path }}
 ###############################################################################
 
-- name: Copy Bastion Vault client certificate from primary Bastion to this Bastion
+- name: Copy Bastion's Vault-client certificate from primary Bastion to this Bastion
   copy:
     src: "{{ bastion_tmp_tls_dir_for_vault_clients }}/{{ inventory_hostname }}/{{ vault_client_cert_file }}"
     dest: "{{ bastion_client_auth_to_vault_cert_path }}"
@@ -73,7 +73,7 @@
     group: root
     mode: "0644"
 
-- name: Copy Bastion Vault client private key from primary Bastion to this Bastion
+- name: Copy Bastion's Vault-client private key from primary Bastion to this Bastion
   copy:
     src: "{{ bastion_tmp_tls_dir_for_vault_clients }}/{{ inventory_hostname }}/{{ vault_client_key_file }}"
     dest: "{{ bastion_client_auth_to_vault_key_path }}"

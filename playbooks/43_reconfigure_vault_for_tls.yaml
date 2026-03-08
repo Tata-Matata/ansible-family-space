@@ -37,6 +37,8 @@
   hosts: vault
   become: true
   gather_facts: false
+  vars_files:
+    - ../vars/bootstrap-tls-vault-consul.yaml
 
   tasks:
   - name: Stop Vault
@@ -97,6 +99,8 @@
 - hosts: bastion_primary
   become: false
   gather_facts: false
+  vars_files:
+    - ../vars/bootstrap-tls-vault-consul.yaml
   tasks:
   - name: Enable Vault TLS mode for URL construction
     set_fact:

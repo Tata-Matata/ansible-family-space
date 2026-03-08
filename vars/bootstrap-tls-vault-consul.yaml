@@ -1,13 +1,73 @@
 # Bootstrap TLS phase configuration
-# Used ONLY by 40-bootstrap-tls-vault-consul.yaml for temporary storage of TLS material before distributing to Vault and Consul nodes
+# Used ONLY by 4x-xx.yaml playbooks to set variables related to TLS certificate generation, distribution and configuration for Vault and Consul
 
 bootstrap_ca_ttl_days: 7
 
+
+
+##################################################################
+#################### TLS material paths ##########################
+##################################################################
+ca_cert_file: ca.pem
+ca_key_file: ca.key
+
+####### BASTION CONFIGURATION  ############################
+
+
+# Directory on Bastion hosts where client certificates for Bastion to auth to Consul and Vault are stored
+bastion_tls_dir: /etc/tls
+bastion_ca_cert_path: "{{ bastion_tls_dir }}/{{ ca_cert_file}}"
+bastion_ca_key_path: "{{ bastion_tls_dir }}/{{ ca_key_file}}"
+
+# Bastion auths as client to Vault
+bastion_client_auth_to_vault_certs_dir: "{{ bastion_tls_dir }}/vault-client"
+bastion_client_auth_to_vault_cert_path: "{{ bastion_client_auth_to_vault_certs_dir }}/{{ vault_client_cert_file }}"
+bastion_client_auth_to_vault_key_path: "{{ bastion_client_auth_to_vault_certs_dir }}/{{ vault_client_key_file }}"
+
+# Bastion auths as client to Consul
+bastion_client_auth_to_consul_certs_dir: "{{ bastion_tls_dir }}/consul-client"
+bastion_client_auth_to_consul_cert_path: "{{ bastion_client_auth_to_consul_certs_dir }}/{{ consul_client_cert_file }}"
+bastion_client_auth_to_consul_key_path: "{{ bastion_client_auth_to_consul_certs_dir }}/{{ consul_client_key_file }}"
+
+####### BASTION temp directories #########################
+
 bastion_tmp_tls_dir: /tmp/bootstrap-tls
+
+# directories where temporary server certificates and keys are generated on Bastion before being distributed to Vault and Consul nodes
 bastion_tmp_tls_dir_for_vault: "{{ bastion_tmp_tls_dir }}/vault"
 bastion_tmp_tls_dir_for_consul: "{{ bastion_tmp_tls_dir }}/consul"
+
+# Consul clients are Vault servers authenticating to Consul as well as Bastion servers authenticating to Consul
 bastion_tmp_tls_dir_for_consul_clients: "{{ bastion_tmp_tls_dir }}/consul-clients"
 
 #Vault clients are Bastion servers authenticating to Vault
 bastion_tmp_tls_dir_for_vault_clients: "{{ bastion_tmp_tls_dir }}/vault-clients"
 
+####### CONSUL CONFIGURATION  ############################
+consul_client_key_file: consul-client.key
+consul_client_cert_file: consul-client.pem
+consul_server_key_file: consul.key
+consul_server_cert_file: consul.pem
+
+consul_tls_dir: /etc/consul.d/tls
+consul_server_cert_path: "{{ consul_tls_dir }}/{{ consul_server_cert_file }}"
+consul_server_key_path: "{{ consul_tls_dir }}/{{ consul_server_key_file }}"
+consul_ca_cert_path: "{{ consul_tls_dir }}/{{ ca_cert_file }}"
+
+
+######## VAULT CONFIGURATION  ############################
+vault_client_key_file: vault-client.key
+vault_client_cert_file: vault-client.pem
+vault_server_key_file: vault-server.key
+vault_server_cert_file: vault-server.pem
+
+vault_tls_dir: "{{ vault_config_dir }}/tls"
+vault_server_cert_path: "{{ vault_tls_dir }}/{{vault_server_cert_file}}"
+vault_server_key_path: "{{ vault_tls_dir }}/{{vault_server_key_file}}"
+vault_ca_cert_path: "{{ vault_tls_dir }}/{{ca_cert_file}}"
+vault_tmp_zip: /tmp/vault.zip
+
+# Vault as client to Consul (mTLS)
+vault_client_auth_to_consul_certs_dir: "{{ vault_tls_dir }}/consul-client-auth"
+vault_client_auth_to_consul_cert_path: "{{ vault_client_auth_to_consul_certs_dir }}/{{ consul_client_cert_file }}"
+vault_client_auth_to_consul_key_path: "{{ vault_client_auth_to_consul_certs_dir }}/{{ consul_client_key_file }}"
