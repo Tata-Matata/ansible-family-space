@@ -24,10 +24,20 @@
   systemd:
     daemon_reload: yes
 
-- name: Enable and start Vault
+- name: Enable Vault service
   systemd:
     name: vault
     enabled: yes
+
+- name: Restart Vault when config changed
+  systemd:
+    name: vault
+    state: restarted
+  when: vault_config.changed
+
+- name: Ensure Vault is started (no config changes)
+  systemd:
+    name: vault
     state: started
 
 - name: Wait for Vault API to respond on HTTP

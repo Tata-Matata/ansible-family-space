@@ -5,4 +5,5 @@
     owner: "{{ vault_user }}"
     group: "{{ vault_group }}"
     mode: "0644"
+  register: vault_config
 
