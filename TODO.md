@@ -4,6 +4,7 @@
 
 ### Bastion Security Hardening
 - [ ] Refactor `playbooks/01-bastion-security-hardening.yaml` into a reusable role
+  - Consider incorporating `playbooks/01-add-known-hosts-to-bastion.yaml` into the role as well
   - Extract SSH hardening tasks to `roles/bastion_security/tasks/ssh.yaml`
   - Extract iptables INPUT chain rules to `roles/bastion_security/tasks/firewall.yaml`
   - Extract Fail2Ban setup to `roles/bastion_security/tasks/fail2ban.yaml`

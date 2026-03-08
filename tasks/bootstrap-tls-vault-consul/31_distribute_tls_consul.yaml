@@ -13,7 +13,7 @@
     state: directory
     owner: consul
     group: consul
-    mode: "0750"
+    mode: "0755"
 
 - name: Copy CA certificate to Consul from Bastion
   copy:
