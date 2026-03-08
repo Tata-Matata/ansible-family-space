@@ -1,7 +1,0 @@
----
-### Bootstrap TLS (phase 3): enable TLS on services and validate
-   
-# Reconfigure and restart Vault + Consul to use TLS
-- import_playbook: ../tasks/bootstrap-tls-vault-consul/40_reconfigure_consul_for_tls.yaml
-- import_playbook: ../tasks/bootstrap-tls-vault-consul/41_reconfigure_vault_for_tls.yaml
-- import_playbook: ../tasks/bootstrap-tls-vault-consul/90_verify_and_mark.yaml

@@ -1,0 +1,84 @@
+###############################################################################
+# Copy TLS material from Bastion to Vault and re-configure Vault for TLS
+# Preconditions:
+#   - Vault is installed, uninitialized, sealed
+#   - Vault is currently reachable over HTTP
+#   - TLS material has already been distributed:
+#       vault_server_cert_path: "{{ vault_tls_dir }}/{{vault_server_cert_file}}"
+#       vault_server_key_path: "{{ vault_tls_dir }}/{{vault_server_key_file}}"
+#       vault_ca_cert_path: "{{ vault_tls_dir }}/{{ca_cert_file}}"
+#
+###############################################################################
+
+- name: Pre-flight checks on Vault
+  hosts: vault
+  gather_facts: false
+  become: false
+
+  tasks:
+  - name: Health check on Vault http endpoint and initialization status
+    block:
+    - import_tasks: ../tasks/bootstrap-tls-vault-consul/00_preflight_checks_vault_api.yaml
+
+
+## DISTRIBUTE TLS MATERIAL TO VAULT from BASTION
+- name: Copy Vault TLS material from Bastion to Vault
+  hosts: vault
+  gather_facts: true
+  become: true
+  vars_files:
+    - ../vars/bootstrap-tls-vault-consul.yaml
+  tasks:
+    - name: Copy Vault TLS material from Bastion to Vault
+      import_tasks: ../tasks/bootstrap-tls-vault-consul/30_distribute_tls_vault.yaml
+
+## RE-CONFIGURE VAULT FOR TLS and RESTART
+- name: Reconfigure and restart Vault to use TLS
+  hosts: vault
+  become: true
+  gather_facts: false
+
+  tasks:
+  - name: Stop Vault
+    systemd:
+      name: vault
+      state: stopped
+
+
+  - name: Enable Vault TLS mode
+    set_fact:
+      vault_tls_enabled: true
+      
+  - name: Render Vault config
+    import_role:
+      name: vault
+      tasks_from: configure
+      
+
+  - name: Start Vault
+    systemd:
+      name: vault
+      state: started
+
+  ###############################################################################
+  # on BASTION: Verify TLS connectivity to Vault  ############################### 
+  ###############################################################################
+  # 200 should not be possible since Vault is not initialized yet but we allow it here defensively as well
+  # 429 (sealed) or 501 (uninitialized) are expected
+- hosts: bastion_primary
+  become: false
+  gather_facts: false
+  tasks:
+  # verify mTLS from Bastion to Vault and Consul
+  - name: Verify Vault HTTPS API from Bastion
+    include_role:
+      name: verify_https
+    vars:
+      verify_https_name: "Vault api"
+      verify_https_url: "{{ vault_api_addr }}{{ vault_api_health_path }}"
+      # mTLS client certs for Bastion → Consul
+      verify_https_client_cert: "{{ bastion_client_auth_to_vault_cert_path }}"
+      verify_https_client_key: "{{ bastion_client_auth_to_vault_key_path }}"
+      # for Ansible to verify Consul server certs signed by our CA
+      verify_https_ca_cert: "{{ bastion_ca_cert_path }}"
+      verify_https_expected_status: [ 200, 429, 501 ]

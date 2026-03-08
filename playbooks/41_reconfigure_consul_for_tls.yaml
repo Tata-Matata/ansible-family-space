@@ -1,4 +1,5 @@
 ###############################################################################
+# Copy certificates from Bastion 
 # Enable TLS verification in Consul and restartart the service
 #
 # Preconditions:
@@ -13,42 +14,20 @@
 ## on CONSUL #############################################################
 ###############################################################################
 
+- name: Copy Consul TLS material from Bastion to Consul
+  hosts: consul
+  gather_facts: true
+  become: true
+  vars_files:
+    - ../vars/bootstrap-tls-vault-consul.yaml
+  tasks:
+    - name: Copy Consul TLS material from Bastion to Consul
+      import_tasks: ../tasks/bootstrap-tls-vault-consul/31_distribute_tls_consul.yaml
+      
 - name: Reconfigure and restart Consul to use TLS
   hosts: consul
   become: true
   gather_facts: false
-  ###############################################################################
-  # Pre-flight checks (defensive)
-  ###############################################################################
-  pre_tasks:
-  - name: Assert Consul TLS inputs
-    include_role:
-      name: assert_paths
-    vars:
-      required_paths:
-      - path: "{{ consul_ca_cert_path }}"
-        type: file
-        owner: "{{ consul_user }}"
-        group: "{{ consul_group }}"
-        mode: "0644"
-
-      - path: "{{ consul_server_key_path }}"
-        type: file
-        owner: "{{ consul_user }}"
-        group: "{{ consul_group }}"
-        mode: "0600"
-
-      - path: "{{ consul_server_cert_path }}"
-        type: file
-        owner: "{{ consul_user }}"
-        group: "{{ consul_group }}"
-        mode: "0644"
-
-      - path: "{{ consul_tls_dir }}"
-        type: directory
-        owner: "{{ consul_user }}"
-        group: "{{ consul_group }}"
-        mode: "0750"
   tasks:
   - name: Stop Consul
     systemd:
@@ -82,7 +61,7 @@
 #################################################################################
 
 - name: Verify Consul HTTPS API from Bastion
-  hosts: bastion
+  hosts: bastion_primary
   become: false
   gather_facts: false
   tasks:     
