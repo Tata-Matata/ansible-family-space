@@ -1,0 +1,22 @@
+---
+###############################################################################
+# Consul ACL Bootstrap and Configuration
+#
+# This playbook orchestrates Consul ACL setup through the following steps:
+# 1. Verify TLS connectivity from Bastion to Consul and Vault
+# 2. Enable ACL system on all Consul nodes (default deny)
+# 3. Bootstrap the ACL system (generate management token)
+# 4. Create ACL policies and tokens for different services
+# 5. Distribute tokens to appropriate services
+# 6. Verify ACL enforcement
+# 7. Cleanup temporary bootstrap material
+#
+###############################################################################
+
+- import_playbook: consul-acl/00_preflight_tls_verified.yaml
+- import_playbook: consul-acl/10_enable_acl.yaml
+- import_playbook: consul-acl/20_bootstrap_mgmt_token.yaml
+- import_playbook: consul-acl/40_create_tokens.yaml
+- import_playbook: consul-acl/50_distribute_tokens.yaml
+- import_playbook: consul-acl/60_verify_acl.yaml
+- import_playbook: consul-acl/cleanup.yaml
