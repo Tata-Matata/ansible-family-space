@@ -12,7 +12,7 @@
     # if true Ansible will verify the server cert is signed by a trusted CA and hostname/IP matches the certificate SAN
     validate_certs: "{{ consul_tls_enabled }}"
     # Ansible need to know CA cert to validate server cert when using HTTPS
-    ca_path: "{{ consul_ca_cert_path if consul_tls_enabled else omit }}"
+    ca_cert: "{{ consul_ca_cert_path if consul_tls_enabled else omit }}"
 
     # since we are using mTLS, Consul checks client certs (verify_incoming = true)
     # in this case, consul server keys are used as client keys for simplicity
