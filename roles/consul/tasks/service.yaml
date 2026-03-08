@@ -24,9 +24,20 @@
   systemd:
     daemon_reload: yes
 
-- name: Enable and start Consul
+- name: Enable Consul service
   systemd:
     name: consul
     enabled: yes
+
+- name: Restart Consul when config changed
+  systemd:
+    name: consul
+    state: restarted
+  # Only restart if the configuration file was changed in the previous configure.yaml task
+  when: consul_config.changed
+
+- name: Ensure Consul is started (no config changes)
+  systemd:
+    name: consul
     state: started
 

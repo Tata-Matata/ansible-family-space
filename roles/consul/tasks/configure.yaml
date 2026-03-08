@@ -6,3 +6,9 @@
     owner: "{{ consul_user }}"
     group: "{{ consul_group }}"
     mode: "0644"
+  #register: consul_config stores the entire task result in a variable consul_config. 
+  # This is an object/dictionary containing:
+  #   consul_config.changed - boolean, True if the file was modified
+  #   consul_config.failed - boolean, whether task failed
+  #Other module-specific data
+  register: consul_config
