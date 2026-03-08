@@ -1,0 +1,15 @@
+# the fact affects the configuration template and is used to conditionally render TLS settings
+# must be set before re-rendering the configuration
+- name: Set Consul TLS mode to disabled
+  hosts: consul
+  gather_facts: false
+  tasks:
+    - name: Disable Consul TLS mode
+      set_fact:
+        consul_tls_enabled: false
+
+- name: Provision Consul
+  hosts: consul
+  become: true
+  roles:
+    - consul

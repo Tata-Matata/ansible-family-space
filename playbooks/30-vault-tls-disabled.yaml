@@ -1,0 +1,16 @@
+- name: Set Vault and Consul TLS modes to disabled
+  hosts: vault
+  gather_facts: false
+  tasks:
+    - name: Disable Vault and Consul TLS modes
+      set_fact:
+        vault_tls_enabled: false
+        consul_tls_enabled: false
+
+- name: Install and configure Vault
+  hosts: vault
+  become: true
+  gather_facts: true
+
+  roles:
+    - vault
