@@ -1,0 +1,225 @@
+---
+- name: Bastion as default gateway
+  hosts: bastion
+  become: true
+
+  vars:
+    private_iface: enp7s0
+    public_iface: eth0
+    git_ssh_key_path: /root/.ssh/git_ed25519
+
+  tasks:
+    - name: Ensure required packages are installed
+      apt:
+        name:
+          - iptables
+          - iptables-persistent
+          - fail2ban
+        state: present
+        update_cache: yes
+
+    # -----------------------------
+    # SSH hardening
+    # -----------------------------
+    - name: Gather service facts
+      # run this module with defaults
+      # The module populates ansible_facts.services, used later
+      ansible.builtin.service_facts:
+
+    - name: Select SSH service name
+      # If the host has a systemd unit called ssh.service, use value ssh. Otherwise use sshd
+      # Different Linux distros name the SSH service differently, e.g. Ubuntu uses ssh while RHEL/CentOS use sshd;
+      ansible.builtin.set_fact:
+        ssh_service_name: "{{ 'ssh' if 'ssh.service' in ansible_facts.services else 'sshd' }}"
+
+    - name: Disable SSH password authentication
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^\s*#?\s*PasswordAuthentication\s+'
+        line: PasswordAuthentication no
+      register: ssh_password_auth_cfg
+
+    - name: Disable SSH root login
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^\s*#?\s*PermitRootLogin\s+'
+        line: PermitRootLogin no
+      register: ssh_root_login_cfg
+
+    - name: Ensure SSH public key auth is enabled
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^\s*#?\s*PubkeyAuthentication\s+'
+        line: PubkeyAuthentication yes
+      register: ssh_pubkey_auth_cfg
+
+    - name: Restart SSH service when config changed
+      ansible.builtin.systemd:
+        name: "{{ ssh_service_name }}"
+        state: restarted
+      when:
+        - ssh_password_auth_cfg.changed or ssh_root_login_cfg.changed or ssh_pubkey_auth_cfg.changed
+
+    # -----------------------------
+    # iptables INPUT chain hardening
+    # -----------------------------
+    # Accept loopback traffic
+    - name: Check INPUT loopback rule
+      command: iptables -C INPUT -i lo -j ACCEPT
+      register: input_lo_exists
+      failed_when: false
+      changed_when: false
+
+    - name: Allow INPUT loopback
+      command: iptables -I INPUT 1 -i lo -j ACCEPT
+      when: input_lo_exists.rc != 0
+
+    # Accept established/related connections
+    - name: Check INPUT established/related rule
+      command: iptables -C INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+      register: input_established_exists
+      failed_when: false
+      changed_when: false
+
+    - name: Allow INPUT established/related
+      command: iptables -I INPUT 2 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+      when: input_established_exists.rc != 0
+
+    # Accept SSH on port 22
+    - name: Check INPUT SSH rule
+      command: iptables -C INPUT -p tcp --dport 22 -j ACCEPT
+      register: input_ssh_exists
+      failed_when: false
+      changed_when: false
+
+    - name: Allow INPUT SSH
+      command: iptables -I INPUT 3 -p tcp --dport 22 -j ACCEPT
+      when: input_ssh_exists.rc != 0
+
+    # Drop everything else on INPUT
+    - name: Check INPUT default DROP policy
+      shell: iptables -L INPUT -n | head -1 | grep -q 'policy DROP'
+      register: input_drop_policy
+      failed_when: false
+      changed_when: false
+
+    - name: Set INPUT default policy to DROP
+      command: iptables -P INPUT DROP
+      when: input_drop_policy.rc != 0
+
+    # -----------------------------
+    # Fail2Ban hardening
+    # automatically blocks IP addresses 
+    # that repeatedly fail authentication (for example SSH login attempts).
+    # -----------------------------
+    - name: Ensure Fail2Ban service is enabled and running
+      ansible.builtin.systemd:
+        name: fail2ban
+        enabled: true
+        state: started
+
+    - name: Check Fail2Ban service status
+      ansible.builtin.command: systemctl status fail2ban --no-pager
+      register: fail2ban_status
+      changed_when: false
+
+    # -----------------------------
+    # Hardening verification checks
+    # -----------------------------
+    - name: Check listening ports
+      ansible.builtin.command: ss -tulpen
+      register: listening_ports
+      changed_when: false
+
+    - name: Check for listening ports other than SSH 22
+      ansible.builtin.shell: ss -tulpenH | awk '$5 !~ /:22$/ {print}'
+      register: non_ssh_listeners
+      changed_when: false
+
+    - name: Warn if non-SSH listening ports are present
+      ansible.builtin.debug:
+        msg: "Investigate non-SSH listening ports: {{ non_ssh_listeners.stdout_lines | join(' | ') }}"
+      when: non_ssh_listeners.stdout | length > 0
+
+    - name: Check unattended-upgrades log file exists
+      ansible.builtin.stat:
+        path: /var/log/unattended-upgrades/unattended-upgrades.log
+      register: unattended_upgrades_log
+
+    - name: Tail unattended-upgrades log when present
+      ansible.builtin.command: tail -n 20 /var/log/unattended-upgrades/unattended-upgrades.log
+      register: unattended_upgrades_log_tail
+      changed_when: false
+      when: unattended_upgrades_log.stat.exists
+
+    # -----------------------------
+    # IPv4 forwarding
+    # -----------------------------
+    - name: Enable IPv4 forwarding at runtime and persistently
+      ansible.posix.sysctl:
+        name: net.ipv4.ip_forward
+        value: "1"
+        state: present
+        reload: yes
+
+    # -----------------------------
+    # IPTABLES NAT + forwarding
+    # -----------------------------
+    # NAT masquerade rule
+    # Check rule existence (exit code 0 = exists, 1 = does not exist)
+    - name: Add NAT masquerade rule if missing
+      command: >
+        iptables -t nat -C POSTROUTING -o {{ public_iface }} -j MASQUERADE
+      register: nat_masquerade_exists
+      #without this, would exit with code 1 if rule missing. Ansible would treat this as fatal error
+      failed_when: false 
+      changed_when: false
+
+    # add if doesn't exist
+    - name: Apply NAT masquerade rule
+      command: >
+        iptables -t nat -A POSTROUTING -o {{ public_iface }} -j MASQUERADE
+      when: nat_masquerade_exists.rc != 0
+
+    # Private to public forwarding rules
+    # Check rule existence (exit code 0 = exists, 1 = does not exist)
+    - name: Check forward rule private → public
+      command: >
+        iptables -C FORWARD -i {{ private_iface }} -o {{ public_iface }} -j ACCEPT
+      register: priv_to_pub_fwd_exists
+      failed_when: false
+      changed_when: false
+
+    # add if doesn't exist
+    - name: Allow forward private → public
+      command: >
+        iptables -A FORWARD -i {{ private_iface }} -o {{ public_iface }} -j ACCEPT
+      when: priv_to_pub_fwd_exists.rc != 0
+
+    # Public to private established connection forwarding rules
+    # Check rule existence (exit code 0 = exists, 1 = does not exist)
+    - name: Check forward rule public → private (established)
+      command: >
+        iptables -C FORWARD -i {{ public_iface }} -o {{ private_iface }} -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+      register: pub_to_priv_established_exists
+      failed_when: false
+      changed_when: false
+
+    # add if doesn't exist
+    - name: Allow established public → private
+      command: >
+        iptables -A FORWARD -i {{ public_iface }} -o {{ private_iface }} -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+      when: pub_to_priv_established_exists.rc != 0
+
+    # Persist iptables rules
+    - name: Ensure iptables-persistent is installed
+      apt:
+        name: iptables-persistent
+        state: present
+        update_cache: yes
+
+    - name: Save iptables rules
+      command: netfilter-persistent save
+      changed_when: false
+
+
