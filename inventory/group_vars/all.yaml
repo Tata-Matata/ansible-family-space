@@ -140,3 +140,16 @@ vault_cluster_addr: "{{ vault_api_scheme }}://{{ vault_internal_address }}:{{ va
 
 #key prefix inside Consul’s KV store where Vault data will be stored
 vault_prefix_in_consul_store: "vault/"
+
+
+
+########## BASTION CONFIGURATION  ############################
+# Bastion auths as client to Vault
+bastion_client_auth_to_vault_certs_dir: "{{ bastion_tls_dir }}/vault-client"
+bastion_client_auth_to_vault_cert_path: "{{ bastion_client_auth_to_vault_certs_dir }}/{{ vault_client_cert_file }}"
+bastion_client_auth_to_vault_key_path: "{{ bastion_client_auth_to_vault_certs_dir }}/{{ vault_client_key_file }}"
+
+# Bastion auths as client to Consul
+bastion_client_auth_to_consul_certs_dir: "{{ bastion_tls_dir }}/consul-client"
+bastion_client_auth_to_consul_cert_path: "{{ bastion_client_auth_to_consul_certs_dir }}/{{ consul_client_cert_file }}"
+bastion_client_auth_to_consul_key_path: "{{ bastion_client_auth_to_consul_certs_dir }}/{{ consul_client_key_file }}"

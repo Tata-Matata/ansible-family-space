@@ -1,12 +1,3 @@
-# Bastion auths as client to Vault
-bastion_client_auth_to_vault_certs_dir: "{{ bastion_tls_dir }}/vault-client"
-bastion_client_auth_to_vault_cert_path: "{{ bastion_client_auth_to_vault_certs_dir }}/{{ vault_client_cert_file }}"
-bastion_client_auth_to_vault_key_path: "{{ bastion_client_auth_to_vault_certs_dir }}/{{ vault_client_key_file }}"
-
-# Bastion auths as client to Consul
-bastion_client_auth_to_consul_certs_dir: "{{ bastion_tls_dir }}/consul-client"
-bastion_client_auth_to_consul_cert_path: "{{ bastion_client_auth_to_consul_certs_dir }}/{{ consul_client_cert_file }}"
-bastion_client_auth_to_consul_key_path: "{{ bastion_client_auth_to_consul_certs_dir }}/{{ consul_client_key_file }}"
 
 # Temporary directory on Bastion hosts where Consul ACL tokens (s. 50-consul-acl playbook) 
 # will be temporarily stored during the run, 
