@@ -64,7 +64,11 @@
   hosts: bastion_primary
   become: false
   gather_facts: false
-  tasks:     
+  tasks:
+  - name: Enable Consul TLS mode for URL construction
+    set_fact:
+      consul_tls_enabled: true
+      
   - name: Verify Consul HTTPS API from Bastion
     include_role:
       name: verify_https
