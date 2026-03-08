@@ -5,7 +5,7 @@
 # We first wait for the agent API, then for leader election
 - name: Wait for Consul agent API to be reachable
   uri:
-    url: "{{ consul_agent_api_scheme }}://{{ ansible_default_ipv4.address }}:{{ consul_agent_api_port }}{{consul_api_health_path}}"
+    url: "{{ consul_api_health_addr }}"
     method: GET
     status_code: 200
     # validate_certs is ignored when using HTTP, only becomes relevant for HTTPS
@@ -24,7 +24,7 @@
 
 - name: Wait for Consul leader election (ONLY on Consul servers)
   uri:
-    url: "{{ consul_agent_api_scheme }}://{{ ansible_default_ipv4.address }}:{{ consul_agent_api_port }}{{consul_api_leader_path}}"
+    url: "{{ consul_api_internal_leader_addr }}"
     method: GET
     return_content: true
     status_code: 200
