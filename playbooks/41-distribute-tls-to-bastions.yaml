@@ -57,7 +57,7 @@
         dest: "{{ bastion_client_auth_to_consul_key_path }}"
         owner: root
         group: root
-        mode: "0600"
+        mode: "0644"
 
     ###############################################################################
     #  Bastion → Vault
@@ -84,7 +84,7 @@
         dest: "{{ bastion_client_auth_to_vault_key_path }}"
         owner: root
         group: root
-        mode: "0600"
+        mode: "0644"
 
     ###############################################################################
     # Sanity checks
