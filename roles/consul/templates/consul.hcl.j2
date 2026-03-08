@@ -64,8 +64,8 @@ ca_file = "{{ consul_ca_cert_path }}"
 
 ports {
   http  = -1
-  https = "{{ consul_https_port }}"
-  dns   = "{{ consul_dns_port }}"
+  https = {{ consul_https_port }}
+  dns   = {{ consul_dns_port }}
 }
 {% else %}
 

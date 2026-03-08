@@ -51,10 +51,32 @@
       state: started
 
   - name: Verify Consul service is running
-    systemd:
-      name: consul
-      state: started
+    command: systemctl is-active consul
+    register: consul_status
     changed_when: false
+    failed_when: consul_status.stdout != 'active'
+
+  - name: Show Consul service status and logs if failed
+    block:
+    - name: Get Consul service status
+      command: systemctl status consul --no-pager
+      register: consul_full_status
+      changed_when: false
+
+    - name: Get recent Consul logs
+      command: journalctl -u consul -n 50 --no-pager
+      register: consul_logs
+      changed_when: false
+
+    - name: Display Consul status and logs
+      debug:
+        msg:
+          - "Consul Status:"
+          - "{{ consul_full_status.stdout_lines }}"
+          - ""
+          - "Recent Consul Logs:"
+          - "{{ consul_logs.stdout_lines }}"
+    when: consul_status.stdout != 'active'
 
 #################################################################################
 # on BASTION: Verify TLS connectivity to Consul  ################################

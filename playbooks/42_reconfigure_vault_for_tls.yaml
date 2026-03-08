@@ -45,9 +45,10 @@
       state: stopped
 
 
-  - name: Enable Vault TLS mode
+  - name: Enable Vault and Consul TLS modes
     set_fact:
       vault_tls_enabled: true
+      consul_tls_enabled: true
       
   - name: Render Vault config
     import_role:
@@ -59,6 +60,34 @@
     systemd:
       name: vault
       state: started
+
+  - name: Verify Vault service is running
+    command: systemctl is-active vault
+    register: vault_status
+    changed_when: false
+    failed_when: vault_status.stdout != 'active'
+
+  - name: Show Vault service status and logs if failed
+    block:
+    - name: Get Vault service status
+      command: systemctl status vault --no-pager
+      register: vault_full_status
+      changed_when: false
+
+    - name: Get recent Vault logs
+      command: journalctl -u vault -n 50 --no-pager
+      register: vault_logs
+      changed_when: false
+
+    - name: Display Vault status and logs
+      debug:
+        msg:
+          - "Vault Status:"
+          - "{{ vault_full_status.stdout_lines }}"
+          - ""
+          - "Recent Vault Logs:"
+          - "{{ vault_logs.stdout_lines }}"
+    when: vault_status.stdout != 'active'
 
   ###############################################################################
   # on BASTION: Verify TLS connectivity to Vault  ############################### 
