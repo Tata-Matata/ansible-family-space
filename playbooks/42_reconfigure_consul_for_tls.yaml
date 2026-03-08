@@ -80,10 +80,10 @@
           - "{{ consul_logs.stdout_lines }}"
     when: consul_status.stdout != 'active'
 
-  - name: Healthcheck Consul API with TLS from localhost
-    import_role:
-      name: consul
-      tasks_from: healthcheck
+    - name: Healthcheck Consul API with TLS from localhost
+      import_role:
+        name: consul
+        tasks_from: healthcheck
 
 #################################################################################
 # on BASTION: Verify TLS connectivity to Consul  ################################
