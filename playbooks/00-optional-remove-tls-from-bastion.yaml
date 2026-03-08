@@ -45,6 +45,8 @@
   hosts: vault
   gather_facts: false
   become: true
+  vars_files:
+    - ../vars/bootstrap-tls-vault-consul.yaml
   tasks:
     - name: Skip unless cleanup_nodes=yes
       when: (cleanup_nodes | default('no')) != 'yes'
@@ -61,6 +63,8 @@
   hosts: consul
   gather_facts: false
   become: true
+  vars_files:
+    - ../vars/bootstrap-tls-vault-consul.yaml
   tasks:
     - name: Skip unless cleanup_nodes=yes
       when: (cleanup_nodes | default('no')) != 'yes'
@@ -78,6 +82,8 @@
   hosts: "bastion:!bastion_primary"
   gather_facts: false
   become: true
+  vars_files:
+    - ../vars/bootstrap-tls-vault-consul.yaml
   tasks:
     - name: Skip unless cleanup_nodes=yes
       when: (cleanup_nodes | default('no')) != 'yes'
