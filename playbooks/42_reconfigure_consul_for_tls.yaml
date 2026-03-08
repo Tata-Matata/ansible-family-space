@@ -109,6 +109,5 @@
       # mTLS client certs for Bastion → Consul
       verify_https_client_cert: "{{ bastion_client_auth_to_consul_cert_path }}"
       verify_https_client_key: "{{ bastion_client_auth_to_consul_key_path }}"
-      # for Ansible to verify Consul server certs signed by our CA
-      verify_https_ca_cert: "{{ bastion_ca_cert_path }}"
+      # CA is now installed in system trust store, no need to specify
 
