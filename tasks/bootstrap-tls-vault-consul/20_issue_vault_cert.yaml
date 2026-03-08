@@ -40,7 +40,9 @@
     vault_tls_sans:
     - "DNS:{{ vault_host }}"
     - "DNS:{{ vault_service_name }}"
+    - "DNS:localhost"
     - "IP:{{ hostvars[vault_host].ansible_host }}"
+    - "IP:127.0.0.1"
   changed_when: false
 
 ###############################################################################
