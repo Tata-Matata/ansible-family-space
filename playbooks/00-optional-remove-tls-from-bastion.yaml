@@ -34,10 +34,11 @@
     ansible.builtin.include_role:
       name: clear_paths
     vars:
-      clear_path: "{{ item }}"
+      clear_path: "{{ cleanup_dir }}"
     loop: "{{ _cleanup_dirs }}"
     loop_control:
-      label: "{{ item }}"
+      loop_var: cleanup_dir
+      label: "{{ cleanup_dir }}"
 
 
 - name: Remove distributed bootstrap TLS artifacts from Vault hosts
