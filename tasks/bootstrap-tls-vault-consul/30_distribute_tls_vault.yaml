@@ -17,7 +17,7 @@
     state: directory
     owner: vault
     group: vault
-    mode: "0750"
+    mode: "0755"
 
 ###############################################################################
 # Distribute CA certificate from primary Bastion to Vault
@@ -31,6 +31,23 @@
     owner: vault
     group: vault
     mode: "0644"
+
+###############################################################################
+# Install CA in system trust store for Python SSL library
+###############################################################################
+
+- name: Install CA certificate in system trust store
+  copy:
+    src: "{{ bastion_ca_cert_path }}"
+    dest: /usr/local/share/ca-certificates/consul-ca.crt
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Update system CA certificates
+  command: update-ca-certificates
+  changed_when: "'0 added' not in update_ca_result.stdout"
+  register: update_ca_result
 
 ###############################################################################
 # Distribute Vault server certificate & key  from primary Bastion to Vault

@@ -3,16 +3,14 @@
 # On first startup (especially single-node), /v1/status/leader
 # may briefly return empty or 500 while Raft bootstraps.
 # We first wait for the agent API, then for leader election
+# CA certificate is installed in system trust store, so validate_certs works automatically
 - name: Wait for Consul agent API to be reachable
   uri:
     url: "{{ consul_api_internal_health_addr }}"
     method: GET
     status_code: 200
-    # validate_certs is ignored when using HTTP, only becomes relevant for HTTPS
-    # if true Ansible will verify the server cert is signed by a trusted CA and hostname/IP matches the certificate SAN
+    # CA is in system trust store, so this works for both HTTP and HTTPS
     validate_certs: "{{ consul_tls_enabled }}"
-    # Ansible need to know CA cert to validate server cert when using HTTPS
-    ca_cert: "{{ consul_ca_cert_path if consul_tls_enabled else omit }}"
 
     # since we are using mTLS, Consul checks client certs (verify_incoming = true)
     # in this case, consul server keys are used as client keys for simplicity
@@ -28,11 +26,8 @@
     method: GET
     return_content: true
     status_code: 200
-    # validate_certs is ignored when using HTTP, only becomes relevant for HTTPS
+    # CA is in system trust store, so this works for both HTTP and HTTPS
     validate_certs: "{{ consul_tls_enabled }}"
-
-    # Ansible need to know CA cert to validate server cert when using HTTPS
-    ca_path: "{{ consul_ca_cert_path if consul_tls_enabled else omit }}"
 
     # since we are using mTLS, Consul checks client certs (verify_incoming = true)
     # in this case, consul server keys are used as client keys for simplicity

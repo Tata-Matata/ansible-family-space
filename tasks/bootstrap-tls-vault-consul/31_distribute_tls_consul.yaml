@@ -47,6 +47,23 @@
     mode: "0600"
 
 ###############################################################################
+# Install CA in system trust store for Python SSL library
+###############################################################################
+
+- name: Install CA certificate in system trust store
+  copy:
+    src: "{{ bastion_ca_cert_path }}"
+    dest: /usr/local/share/ca-certificates/consul-ca.crt
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Update system CA certificates
+  command: update-ca-certificates
+  changed_when: "'0 added' not in update_ca_result.stdout"
+  register: update_ca_result
+
+###############################################################################
 # Sanity checks
 ###############################################################################
 
