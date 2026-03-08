@@ -91,6 +91,21 @@
           - "{{ vault_logs.stdout_lines }}"
     when: vault_status.stdout != 'active'
 
+  - name: Verify Vault HTTPS is active (final state)
+    uri:
+      url: "{{ vault_api_health_internal_addr}}"
+      method: GET
+      status_code: [ 429, 501 ]
+      # for Ansible to validate the Vault server certificate
+      ca_path: "{{ vault_ca_cert_path }}"
+      # since we enabled mTLS, Vault will want to check client certs
+      # Vault server cert is also a valid client cert for mTLS here
+      client_cert: "{{ vault_server_cert_path }}"
+      client_key: "{{ vault_server_key_path }}"
+      validate_certs: true
+      return_content: false
+    changed_when: false
+
   ###############################################################################
   # on BASTION: Verify TLS connectivity to Vault  ############################### 
   ###############################################################################
@@ -112,10 +127,10 @@
       name: verify_https
     vars:
       verify_https_name: "Vault api"
-      verify_https_url: "{{ vault_api_addr }}{{ vault_api_health_path }}"
+      verify_https_url: "{{ vault_api_health_addr }}"
       # mTLS client certs for Bastion → Consul
       verify_https_client_cert: "{{ bastion_client_auth_to_vault_cert_path }}"
       verify_https_client_key: "{{ bastion_client_auth_to_vault_key_path }}"
       # for Ansible to verify Consul server certs signed by our CA
       verify_https_ca_cert: "{{ bastion_ca_cert_path }}"
-      verify_https_expected_status: [ 200, 429, 501 ]
+      verify_https_expected_status: [ 429, 501 ]

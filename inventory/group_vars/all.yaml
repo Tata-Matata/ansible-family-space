@@ -76,7 +76,7 @@ vault_service_name: "vault.service.internal"
 vault_api_port: 8200
 vault_cluster_port: 8201
 
-vault_api_health_path: /v1/sys/health
+
 
 # internally used addresses
 # will work with gather_facts: false as well, 
@@ -84,6 +84,9 @@ vault_api_health_path: /v1/sys/health
 # with a fallback to inventory_hostname
 vault_internal_address: "{{ ansible_host | default(inventory_hostname) }}"
 vault_api_addr: "{{ vault_api_scheme }}://{{ vault_service_name }}:{{ vault_api_port }}"
+vault_api_health_path: "/v1/sys/health"
+vault_api_health_internal_addr: "{{ vault_api_scheme }}://{{ ansible_default_ipv4.address }}:{{ vault_api_port }}{{ vault_api_health_path }}"
+vault_api_health_addr: "{{ vault_api_addr }}{{ vault_api_health_path }}"
 vault_cluster_addr: "{{ vault_api_scheme }}://{{ vault_internal_address }}:{{ vault_cluster_port}}"
 
 ######################################################

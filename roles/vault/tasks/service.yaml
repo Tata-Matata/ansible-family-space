@@ -32,7 +32,7 @@
 
 - name: Wait for Vault API to respond on HTTP
   uri:
-    url: "{{ vault_api_scheme }}://{{ ansible_default_ipv4.address }}:{{ vault_api_port }}{{vault_api_health_path}}"
+    url: "{{ vault_api_health_internal_addr }}"
     method: GET
     status_code: [200, 429, 501]
   register: vault_health
