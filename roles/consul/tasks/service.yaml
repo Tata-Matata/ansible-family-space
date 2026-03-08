@@ -1,43 +1,9 @@
 ---
-- name: Install Consul systemd unit
-  copy:
-    dest: /etc/systemd/system/consul.service
-    mode: "0644"
-    content: |
-      [Unit]
-      Description=Consul
-      Requires=network-online.target
-      After=network-online.target
-
-      [Service]
-      User={{ consul_user }}
-      Group={{ consul_group }}
-      ExecStart={{ consul_binary_path }} agent \
-        -config-dir={{ consul_config_dir }}
-      Restart=on-failure
-      LimitNOFILE=65536
-
-      [Install]
-      WantedBy=multi-user.target
-
-- name: Reload systemd
-  systemd:
-    daemon_reload: yes
-
-- name: Enable Consul service
-  systemd:
-    name: consul
-    enabled: yes
-
-- name: Restart Consul when config changed
-  systemd:
-    name: consul
-    state: restarted
-  # Only restart if the configuration file was changed in the previous configure.yaml task
-  when: consul_config.changed
-
-- name: Ensure Consul is started (no config changes)
-  systemd:
-    name: consul
-    state: started
+- name: Install and manage Consul systemd service
+  include_role:
+    name: systemd_service
+  vars:
+    service_name: consul
+    service_unit_template: consul.service.j2
+    service_config_changed: "{{ consul_config }}"
 

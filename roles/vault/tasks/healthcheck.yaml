@@ -1,0 +1,10 @@
+- name: Wait for Vault API to respond on HTTP
+  uri:
+    url: "{{ vault_api_health_internal_addr }}"
+    method: GET
+    status_code: [200, 429, 501]
+  register: vault_health
+  retries: 10
+  delay: 3
+  until: vault_health.status in [200, 429, 501]
+  changed_when: false

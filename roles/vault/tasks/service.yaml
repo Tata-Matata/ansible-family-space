@@ -1,52 +1,10 @@
-- name: Install Vault systemd unit
-  copy:
-    dest: /etc/systemd/system/vault.service
-    mode: "0644"
-    content: |
-      [Unit]
-      Description=Vault
-      Requires=network-online.target
-      After=network-online.target
+---
+- name: Install and manage Vault systemd service
+  include_role:
+    name: systemd_service
+  vars:
+    service_name: vault
+    service_unit_template: vault.service.j2
+    service_config_changed: "{{ vault_config }}"
 
-      [Service]
-      User={{ vault_user }}
-      Group={{ vault_group }}
-      ExecStart={{ vault_binary_path }} server -config={{ vault_config_dir }}
-      Restart=on-failure
-      LimitNOFILE=65536
-      CapabilityBoundingSet=CAP_IPC_LOCK
-      AmbientCapabilities=CAP_IPC_LOCK
 
-      [Install]
-      WantedBy=multi-user.target
-      
-- name: Reload systemd
-  systemd:
-    daemon_reload: yes
-
-- name: Enable Vault service
-  systemd:
-    name: vault
-    enabled: yes
-
-- name: Restart Vault when config changed
-  systemd:
-    name: vault
-    state: restarted
-  when: vault_config.changed
-
-- name: Ensure Vault is started (no config changes)
-  systemd:
-    name: vault
-    state: started
-
-- name: Wait for Vault API to respond on HTTP
-  uri:
-    url: "{{ vault_api_health_internal_addr }}"
-    method: GET
-    status_code: [200, 429, 501]
-  register: vault_health
-  retries: 10
-  delay: 3
-  until: vault_health.status in [200, 429, 501]
-  changed_when: false

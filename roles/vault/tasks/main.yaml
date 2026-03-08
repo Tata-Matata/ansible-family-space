@@ -26,6 +26,7 @@
     - import_tasks: install.yaml
     - import_tasks: configure.yaml
     - import_tasks: service.yaml
+    - import_tasks: healthcheck.yaml
   rescue:
     - name: Vault install failed — show logs
       command: journalctl -u vault

@@ -1,0 +1,7 @@
+---
+# Default values for systemd_service role
+# These should be overridden when including the role
+
+service_name: ""
+service_unit_template: ""
+service_config_changed: {}

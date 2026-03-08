@@ -1,0 +1,33 @@
+---
+# Reusable systemd service installation and management
+# Required variables:
+#   service_name: name of the service (e.g., consul, vault)
+#   service_unit_template: path to systemd unit template (e.g., consul.service.j2)
+#   service_config_changed: registered result from config task (e.g., consul_config)
+
+- name: "Install {{ service_name }} systemd unit"
+  template:
+    src: "{{ service_unit_template }}"
+    dest: "/etc/systemd/system/{{ service_name }}.service"
+    mode: "0644"
+
+- name: Reload systemd
+  systemd:
+    daemon_reload: yes
+
+- name: "Enable {{ service_name }} service"
+  systemd:
+    name: "{{ service_name }}"
+    enabled: yes
+
+- name: "Restart {{ service_name }} when config changed"
+  systemd:
+    name: "{{ service_name }}"
+    state: restarted
+  when: service_config_changed.changed
+
+- name: "Ensure {{ service_name }} is started (no config changes)"
+  systemd:
+    name: "{{ service_name }}"
+    state: started
+  when: not service_config_changed.changed
