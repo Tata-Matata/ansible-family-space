@@ -10,17 +10,7 @@ vault_install_dir: /usr/local/bin
 vault_binary_path: "{{ vault_install_dir }}/vault"
 
 
-# TLS configuration
-vault_tls_dir: "{{ vault_config_dir }}/tls"
-vault_server_cert_path: "{{ vault_tls_dir }}/{{vault_server_cert_file}}"
-vault_server_key_path: "{{ vault_tls_dir }}/{{vault_server_key_file}}"
-vault_ca_cert_path: "{{ vault_tls_dir }}/{{ca_cert_file}}"
-vault_tmp_zip: /tmp/vault.zip
 
-# Vault as client to Consul (mTLS)
-vault_client_auth_to_consul_certs_dir: "{{ vault_tls_dir }}/consul-client-auth"
-vault_client_auth_to_consul_cert_path: "{{ vault_client_auth_to_consul_certs_dir }}/{{ consul_client_cert_file }}"
-vault_client_auth_to_consul_key_path: "{{ vault_client_auth_to_consul_certs_dir }}/{{ consul_client_key_file }}"
 
 # ACLs (for consul-acl playbook)
 vault_consul_agent_token_path: "/etc/vault.d/consul.hcl"

@@ -47,6 +47,8 @@
       # for Ansible to verify Consul server certs signed by our CA
       verify_https_ca_cert: "{{ bastion_ca_cert_path }}"
       verify_https_expected_status: [ 200, 429, 501 ]
+
+      
   - name: Verify Consul HTTPS API from Bastion
     include_role:
       name: verify_https

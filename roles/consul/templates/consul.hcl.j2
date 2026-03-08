@@ -48,6 +48,7 @@ advertise_addr = "{{ consul_internal_advertise_addr }}"
 # if false - clients authenticate using ACL tokens (opaque bearer tokens stored in Consul’s Raft state) instead of mTLS (temporary config until Vault can issue certificates itself)
 # Later: True = mTLS: every client (Vault, Bastion, Consul CLI, health checks) to present a valid TLS client certificate signed by Consul’s CA
 # cert SAN must match allowed identities
+
 {% if consul_tls_enabled %}
 
 verify_outgoing = true

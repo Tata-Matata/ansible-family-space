@@ -4,20 +4,7 @@
 # WAN federation happens between datacenters
 consul_datacenter: dc1
 
-# internally used addresses
-# will work with gather_facts: false as well, 
-# since the value is derived from inventory variables 
-# with a fallback to inventory_hostname
-internal_address: "{{ ansible_host | default(inventory_hostname) }}"
 
-# local interface the Consul agent binds to
-# affects listeners and gossip
-# never used by other services directly
-consul_internal_bind_addr: "{{ internal_address }}"
-
-# Consul internal – cluster identity
-# used only for Consul ↔ Consul communication
-consul_internal_advertise_addr: "{{ internal_address }}"
 
 # Installation and configuration
 consul_version: "1.22.2"
@@ -33,11 +20,6 @@ consul_install_dir: /usr/local/bin
 consul_binary_path: "{{consul_install_dir}}/consul"
 
 
-# TLS configuration
-consul_tls_dir: /etc/consul.d/tls
-consul_server_cert_path: "{{ consul_tls_dir }}/{{ consul_server_cert_file }}"
-consul_server_key_path: "{{ consul_tls_dir }}/{{ consul_server_key_file }}"
-consul_ca_cert_path: "{{ consul_tls_dir }}/{{ ca_cert_file }}"
 
 # Logging
 consul_log_level: INFO

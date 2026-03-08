@@ -1,15 +1,16 @@
 ###############################################################################
-# Enable TLS verification in Consul (client-side)
+# Enable TLS verification in Consul and restartart the service
 #
 # Preconditions:
 #   - Consul is installed and running
 #   - Bootstrap CA certificate has been distributed:
 #       * {{ consul_tls_dir }}/ca.pem
-#
-# Guarantees:
-#   - Consul verifies TLS connections using the bootstrap CA
-#   - No Consul server TLS is enabled yet
-#   - Consul is restarted explicitly and validated
+#   - Consul server certificate and key have been distributed:
+#       * {{ consul_tls_dir }}/server.pem
+#       * {{ consul_tls_dir }}/server-key.pem
+
+###############################################################################
+## on CONSUL #############################################################
 ###############################################################################
 
 - name: Reconfigure and restart Consul to use TLS
@@ -54,10 +55,8 @@
       name: consul
       state: stopped
 
-
-  ###############################################################################
-  # Reconfigure Consul for TLS verification
-  ###############################################################################
+  # the fact affects the configuration template and is used to conditionally render TLS settings
+  # must be set before re-rendering the configuration
   - name: Enable Consul TLS mode
     set_fact:
       consul_tls_enabled: true
@@ -67,22 +66,35 @@
       name: consul
       tasks_from: configure
 
-  ###############################################################################
-  # Restart Consul explicitly
-  ###############################################################################
-
   - name: Start Consul
     systemd:
       name: consul
       state: started
-
-###############################################################################
-# Post-flight sanity check
-###############################################################################
 
   - name: Verify Consul service is running
     systemd:
       name: consul
       state: started
     changed_when: false
+
+#################################################################################
+# on BASTION: Verify TLS connectivity to Consul  ################################
+#################################################################################
+
+- name: Verify Consul HTTPS API from Bastion
+  hosts: bastion
+  become: false
+  gather_facts: false
+  tasks:     
+  - name: Verify Consul HTTPS API from Bastion
+    include_role:
+      name: verify_https
+    vars:
+      verify_https_name: "Consul api"
+      verify_https_url: "{{ consul_api_leader_addr}}"
+      # mTLS client certs for Bastion → Consul
+      verify_https_client_cert: "{{ bastion_client_auth_to_consul_cert_path }}"
+      verify_https_client_key: "{{ bastion_client_auth_to_consul_key_path }}"
+      # for Ansible to verify Consul server certs signed by our CA
+      verify_https_ca_cert: "{{ bastion_ca_cert_path }}"
 
