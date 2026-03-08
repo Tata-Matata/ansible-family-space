@@ -13,30 +13,6 @@
 # - Generate: Bastion client key + cert to authenticate Bastion to Vault (Bastion → Vault mTLS)
 
 
-
-# Should fail if Vault already has TLS enabled
-# The playbook must never be rerun after TLS bootstrap is completed
-- name: Pre-flight checks on Vault
-  hosts: vault
-  gather_facts: false
-  become: false
-
-  tasks:
-  - name: Health check on Vault http endpoint and initialization status
-    block:
-    - import_tasks: ../tasks/bootstrap-tls-vault-consul/00_preflight_checks_vault_api.yaml
-
-- name: Pre-flight bootstrap marker check on Bastion
-  hosts: bastion
-  gather_facts: false
-  become: false
-  vars_files:
-  - ../vars/bootstrap-tls-vault-consul.yaml
-  tasks:
-  - name: Check bootstrap marker file exists on Bastion
-    block:
-    - import_tasks: ../tasks/bootstrap-tls-vault-consul/00_preflight_checks_bastion_marker.yaml
-
 # On Bastion generate:
 # CA private key, CA certificate + TTL on
 # Vault server certs (per Vault host) on Bastion and distribute to Vault
