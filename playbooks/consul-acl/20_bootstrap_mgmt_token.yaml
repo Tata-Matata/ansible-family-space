@@ -78,7 +78,7 @@
   - name: Extract ACL bootstrap reset index from error text
     set_fact:
       consul_acl_bootstrap_reset_index: >-
-        {{ (consul_acl_bootstrap_error_text | regex_findall('reset index: ([0-9]+)') | first) | default('') }}
+        {{ (consul_acl_bootstrap_error_text | regex_findall('(?i)reset[ -]*index[^0-9]*([0-9]+)') | first) | default('') }}
     changed_when: false
     when: (consul_acl_bootstrap.status | default(0)) != 200
   
@@ -88,9 +88,10 @@
       msg: >
         Consul ACL bootstrap appears to have already been run. This playbook is one-time-only.
         Reuse the existing management token.
-        If it is lost, perform Consul ACL reset on the current leader by writing reset index
+        If it is lost and reset index is available, perform Consul ACL reset on the current leader by writing
         '{{ consul_acl_bootstrap_reset_index | default('unknown') }}' to
         '{{ consul_data_dir }}/acl-bootstrap-reset', then retry bootstrap.
+        If reset index is still empty, run bootstrap directly on the Consul leader to obtain the index from the raw error.
     when:
     - (consul_acl_bootstrap.status | default(0)) != 200
     - consul_acl_bootstrap_error_text is search('ACL bootstrap no longer allowed|bootstrap no longer allowed|already bootstrapped')
