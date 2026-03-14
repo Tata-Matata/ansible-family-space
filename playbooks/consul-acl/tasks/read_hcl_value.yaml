@@ -1,0 +1,111 @@
+- name: Validate HCL read task inputs
+  assert:
+    that:
+    - hcl_file_path is defined
+    - (hcl_file_path | trim) != ''
+    - hcl_key_path is defined
+    - (hcl_key_path | trim) != ''
+    - hcl_output_var is defined
+    - (hcl_output_var | trim) != ''
+    fail_msg: >-
+      read_hcl_value.yaml requires hcl_file_path, hcl_key_path, and hcl_output_var.
+  changed_when: false
+
+- name: Try reading HCL key with python-hcl2
+  shell: |
+    python3 - <<'PY'
+    import json
+    import sys
+
+    path = {{ hcl_file_path | to_json }}
+    key_path = {{ hcl_key_path | to_json }}
+
+    try:
+      import hcl2
+    except Exception:
+      print("")
+      sys.exit(3)
+
+    try:
+      with open(path, "r", encoding="utf-8") as f:
+        data = hcl2.load(f)
+    except Exception:
+      print("")
+      sys.exit(4)
+
+    def normalize(node):
+      while isinstance(node, list) and len(node) == 1:
+        node = node[0]
+      return node
+
+    parts = [p for p in key_path.split(".") if p]
+    current = normalize(data)
+
+    for part in parts:
+      current = normalize(current)
+      next_node = None
+
+      if isinstance(current, dict) and part in current:
+        next_node = current[part]
+      elif isinstance(current, list):
+        for item in current:
+          item = normalize(item)
+          if isinstance(item, dict) and part in item:
+            next_node = item[part]
+            break
+
+      if next_node is None:
+        print("")
+        sys.exit(5)
+
+      current = next_node
+
+    current = normalize(current)
+    if current is None:
+      print("")
+      sys.exit(0)
+
+    if isinstance(current, (dict, list)):
+      print(json.dumps(current, separators=(",", ":")))
+    else:
+      print(str(current).strip())
+    PY
+  register: hcl_value_lookup
+  changed_when: false
+  failed_when: false
+  no_log: true
+
+- name: Slurp HCL file for regex fallback
+  slurp:
+    src: "{{ hcl_file_path }}"
+  register: hcl_value_raw_file
+  when: (hcl_value_lookup.stdout | default('') | trim) == ''
+  no_log: true
+
+- name: Fallback parse by terminal key name
+  set_fact:
+    hcl_value_fallback: >-
+      {{ (
+           (hcl_value_raw_file.content | b64decode)
+           | regex_findall('(?im)^\\s*' ~ (hcl_key_path.split('.') | last) ~ '\\s*=\\s*(.+)$')
+           | first
+           | default('')
+         )
+         | regex_replace('\\s*(#.*)?$', '')
+         | regex_replace('^"', '')
+         | regex_replace('"$', '')
+         | regex_replace("^'", '')
+         | regex_replace("'$", '')
+         | trim }}
+  when: (hcl_value_lookup.stdout | default('') | trim) == ''
+  changed_when: false
+  no_log: true
+
+- name: Set requested fact from parsed HCL value
+  set_fact:
+    "{{ hcl_output_var }}": >-
+      {{ (hcl_value_lookup.stdout | default('') | trim)
+         if (hcl_value_lookup.stdout | default('') | trim) != ''
+         else (hcl_value_fallback | default('') | trim) }}
+  changed_when: false
+  no_log: true

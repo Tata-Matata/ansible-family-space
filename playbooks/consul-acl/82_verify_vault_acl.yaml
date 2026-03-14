@@ -9,29 +9,12 @@
   - set_fact:
       vault_tls_enabled: true
       consul_tls_enabled: true
-  - name: Read Vault token for Consul backend from disk
-    slurp:
-      src: "{{ vault_consul_token_path }}"
-    register: vault_consul_token_file
-    no_log: true
-
-  - name: Extract Vault Consul token
-    set_fact:
-      vault_consul_token: >-
-        {{ (
-             ((vault_consul_token_file.content | b64decode)
-              | regex_findall('(?im)^\\s*token\\s*=\\s*(.+)$')
-              | first
-              | default(''))
-             | regex_replace('\\s*(#.*)?$', '')
-             | regex_replace('^"', '')
-             | regex_replace('"$', '')
-             | regex_replace("^'", '')
-             | regex_replace("'$", '')
-             | trim
-           ) }}
-    changed_when: false
-    no_log: true
+  - name: Read Vault Consul token from HCL
+    include_tasks: tasks/read_hcl_value.yaml
+    vars:
+      hcl_file_path: "{{ vault_consul_token_path }}"
+      hcl_key_path: "storage.consul.token"
+      hcl_output_var: "vault_consul_token"
 
   - name: Fail when Vault Consul token cannot be parsed
     fail:
