@@ -22,6 +22,9 @@
   hosts: consul_servers
   become: true
   gather_facts: false
+  vars_files:
+  - ../../vars/bootstrap-tls-vault-consul.yaml
+  - vars/consul-acl-vars.yaml
   vars:
     consul_server_agent_token: "{{ hostvars[groups['bastion_primary'][0]].consul_server_agent_token }}"
   tasks:

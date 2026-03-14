@@ -22,6 +22,9 @@
   hosts: vault
   become: true
   gather_facts: false
+  vars_files:
+  - ../../vars/bootstrap-tls-vault-consul.yaml
+  - vars/consul-acl-vars.yaml
   vars:
     vault_consul_token: "{{ hostvars[groups['bastion_primary'][0]].vault_consul_token }}"
   tasks:
