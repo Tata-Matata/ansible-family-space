@@ -16,27 +16,12 @@
     register: consul_agent_token_file
     no_log: true
 
-  - name: Extract Consul agent token line
-    set_fact:
-      consul_agent_token_line: >-
-        {{ (consul_agent_token_file.content | b64decode)
-           .splitlines()
-           | map('trim')
-           | select('match', '^agent\\s*=')
-           | first
-           | default('') }}
-    changed_when: false
-    no_log: true
-
-  - name: Normalize Consul agent token value
+  - name: Extract Consul agent token
     set_fact:
       consul_agent_token: >-
-        {{ consul_agent_token_line
-           | regex_replace('^agent\\s*=\\s*', '')
-           | regex_replace('\\s*(#.*)?$', '')
-           | regex_replace('^"|"$', '')
-           | regex_replace("^'|'$", '')
-           | trim }}
+        {{ ((consul_agent_token_file.content | b64decode)
+           | regex_findall("(?im)^\\s*agent\\s*=\\s*[\"']?([^\"'\\s#]+)[\"']?" )
+           | first) | default('') }}
     changed_when: false
     no_log: true
 

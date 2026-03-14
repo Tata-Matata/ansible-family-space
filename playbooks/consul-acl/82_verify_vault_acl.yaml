@@ -15,27 +15,12 @@
     register: vault_consul_token_file
     no_log: true
 
-  - name: Extract Vault Consul token line
-    set_fact:
-      vault_consul_token_line: >-
-        {{ (vault_consul_token_file.content | b64decode)
-           .splitlines()
-           | map('trim')
-           | select('match', '^token\\s*=')
-           | first
-           | default('') }}
-    changed_when: false
-    no_log: true
-
-  - name: Normalize Vault Consul token value
+  - name: Extract Vault Consul token
     set_fact:
       vault_consul_token: >-
-        {{ vault_consul_token_line
-           | regex_replace('^token\\s*=\\s*', '')
-           | regex_replace('\\s*(#.*)?$', '')
-           | regex_replace('^"|"$', '')
-           | regex_replace("^'|'$", '')
-           | trim }}
+        {{ ((vault_consul_token_file.content | b64decode)
+           | regex_findall("(?im)^\\s*token\\s*=\\s*[\"']?([^\"'\\s#]+)[\"']?" )
+           | first) | default('') }}
     changed_when: false
     no_log: true
 
