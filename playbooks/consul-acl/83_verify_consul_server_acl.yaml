@@ -19,10 +19,18 @@
   - name: Extract Consul agent token
     set_fact:
       consul_agent_token: >-
-        {{ (consul_agent_token_file.content | b64decode)
-           | regex_search('agent\\s*=\\s*"([^"]+)"', '\\1') }}
+        {{ ((consul_agent_token_file.content | b64decode)
+           | regex_findall('agent\\s*=\\s*"([^"]+)"')
+           | first) | default('') }}
     changed_when: false
     no_log: true
+
+  - name: Fail when Consul agent token cannot be parsed
+    fail:
+      msg: >-
+        Could not parse agent token from {{ consul_server_token_path }}.
+        Expected: agent = "<secret>"
+    when: (consul_agent_token | default('') | trim) == ''
 
   - name: Agent token can read catalog
     uri:
