@@ -78,7 +78,7 @@
   - name: Extract ACL bootstrap reset index from error text
     set_fact:
       consul_acl_bootstrap_reset_index: >-
-        {{ consul_acl_bootstrap_error_text | regex_search('reset index: ([0-9]+)', '\\1') | default('') }}
+        {{ (consul_acl_bootstrap_error_text | regex_findall('reset index: ([0-9]+)') | first) | default('') }}
     changed_when: false
     when: (consul_acl_bootstrap.status | default(0)) != 200
   
