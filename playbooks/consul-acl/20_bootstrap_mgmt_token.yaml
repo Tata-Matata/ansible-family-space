@@ -49,15 +49,30 @@
     when: not bastion_consul_client_key.stat.exists
       
   - name: Bootstrap Consul ACL system
-    command: >
-      consul acl bootstrap 
-      -http-addr={{ consul_api_addr }} 
-      -client-cert={{ bastion_client_auth_to_consul_cert_path }} 
-      -client-key={{ bastion_client_auth_to_consul_key_path }}
+    uri:
+      url: "{{ consul_api_addr }}/v1/acl/bootstrap"
+      method: PUT
+      body_format: json
+      body: {}
+      status_code: [200, 400, 401, 403, 409, 500]
+      validate_certs: true
+      client_cert: "{{ bastion_client_auth_to_consul_cert_path }}"
+      client_key: "{{ bastion_client_auth_to_consul_key_path }}"
     register: consul_acl_bootstrap
     no_log: true
     changed_when: false
     failed_when: false
+
+  - name: Build bootstrap failure context
+    set_fact:
+      consul_acl_bootstrap_error_text: >-
+        {{
+          (consul_acl_bootstrap.msg | default('')) ~ ' ' ~
+          (consul_acl_bootstrap.content | default('')) ~ ' ' ~
+          ((consul_acl_bootstrap.json | default({})) | to_json)
+        }}
+    changed_when: false
+    when: (consul_acl_bootstrap.status | default(0)) != 200
   
   # Since logging is disabled, we want to give a hint in case if failure due to accidental re-run
   - name: Fail with helper message when ACL bootstrap was already done
@@ -66,10 +81,8 @@
         Consul ACL bootstrap appears to have already been run. This playbook is one-time-only.
         Reuse the existing management token or reset ACL bootstrap state before running this step again.
     when:
-    - consul_acl_bootstrap.rc != 0
-    - >
-      ((consul_acl_bootstrap.stderr | default('')) ~ ' ' ~
-      (consul_acl_bootstrap.stdout | default(''))) is search('ACL bootstrap no longer allowed|bootstrap no longer allowed|already bootstrapped')
+    - (consul_acl_bootstrap.status | default(0)) != 200
+    - consul_acl_bootstrap_error_text is search('ACL bootstrap no longer allowed|bootstrap no longer allowed|already bootstrapped')
 
   - name: Fail with explicit TLS/connection hint
     fail:
@@ -77,10 +90,8 @@
         Consul ACL bootstrap failed due to TLS or connectivity issue from Bastion to Consul API.
         Check DNS for {{ consul_service_name }}, client cert/key validity, and server certificate SAN.
     when:
-    - consul_acl_bootstrap.rc != 0
-    - >
-      ((consul_acl_bootstrap.stderr | default('')) ~ ' ' ~
-      (consul_acl_bootstrap.stdout | default(''))) is search('x509|certificate|unknown authority|tls|handshake|connection refused|dial tcp|no such host')
+    - (consul_acl_bootstrap.status | default(0)) != 200
+    - consul_acl_bootstrap_error_text is search('x509|certificate|unknown authority|tls|handshake|connection refused|dial tcp|no such host')
 
   - name: Fail with explicit ACL permission hint
     fail:
@@ -88,21 +99,20 @@
         Consul ACL bootstrap request was denied by Consul ACLs.
         Most likely ACL bootstrap has already been consumed, or another ACL token is required for this endpoint in current state.
     when:
-    - consul_acl_bootstrap.rc != 0
-    - >
-      ((consul_acl_bootstrap.stderr | default('')) ~ ' ' ~
-      (consul_acl_bootstrap.stdout | default(''))) is search('Permission denied|ACL not found|403')
+    - (consul_acl_bootstrap.status | default(0)) != 200
+    - consul_acl_bootstrap_error_text is search('Permission denied|ACL not found|403')
 
   - name: Fail on unexpected Consul ACL bootstrap errors
     fail:
       msg: >
         Consul ACL bootstrap failed for an unexpected reason.
-        Re-run with -vvv and check Bastion-side command stderr and Consul server logs for details.
+        status={{ consul_acl_bootstrap.status | default('n/a') }}
+        detail={{ consul_acl_bootstrap.msg | default(consul_acl_bootstrap.content | default('no details returned')) }}
     when:
-    - consul_acl_bootstrap.rc != 0
-    - not (((consul_acl_bootstrap.stderr | default('')) ~ ' ' ~ (consul_acl_bootstrap.stdout | default(''))) is search('ACL bootstrap no longer allowed|bootstrap no longer allowed|already bootstrapped'))
-    - not (((consul_acl_bootstrap.stderr | default('')) ~ ' ' ~ (consul_acl_bootstrap.stdout | default(''))) is search('x509|certificate|unknown authority|tls|handshake|connection refused|dial tcp|no such host'))
-    - not (((consul_acl_bootstrap.stderr | default('')) ~ ' ' ~ (consul_acl_bootstrap.stdout | default(''))) is search('Permission denied|ACL not found|403'))
+    - (consul_acl_bootstrap.status | default(0)) != 200
+    - not (consul_acl_bootstrap_error_text is search('ACL bootstrap no longer allowed|bootstrap no longer allowed|already bootstrapped'))
+    - not (consul_acl_bootstrap_error_text is search('x509|certificate|unknown authority|tls|handshake|connection refused|dial tcp|no such host'))
+    - not (consul_acl_bootstrap_error_text is search('Permission denied|ACL not found|403'))
   
   # we will store here temporarily the management token and consul-vault token in the next playbook, we will remove it at the end of the run
   - name: Ensure Consul ACL token directory exists
@@ -114,7 +124,7 @@
       mode: "0700"
   - name: Store Consul management token on bastion
     copy:
-      content: "{{ consul_acl_bootstrap.stdout | from_json | json_query('SecretID') }}"
+      content: "{{ consul_acl_bootstrap.json.SecretID }}"
       dest: "{{ consul_tmp_management_token_path }}"
       owner: root
       group: root

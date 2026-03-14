@@ -9,22 +9,27 @@
     import_tasks: tasks/read_mgmt_token.yaml
 
   - name: Create Consul server agent token
-    command: >
-      consul acl token create
-      -description "Consul server agent token"
-      -policy-name "{{ consul-acl-policy }}"
-      -format json
-      -http-addr={{ consul_api_addr }}
-      -client-cert={{ bastion_client_auth_to_consul_cert_path }}
-      -client-key={{ bastion_client_auth_to_consul_key_path }}
-      -token={{ consul_mgmt_token }}
-    register: consul_server_token
+    uri:
+      url: "{{ consul_api_addr }}/v1/acl/token"
+      method: PUT
+      body_format: json
+      body:
+        Description: "Consul server agent token"
+        Policies:
+        - Name: "{{ consul-acl-policy }}"
+      headers:
+        X-Consul-Token: "{{ consul_mgmt_token }}"
+      status_code: 200
+      validate_certs: true
+      client_cert: "{{ bastion_client_auth_to_consul_cert_path }}"
+      client_key: "{{ bastion_client_auth_to_consul_key_path }}"
+    register: consul_server_token_response
     changed_when: true
     no_log: true
 
   - name: Persist Consul server agent token in tmp file
     copy:
-      content: "{{ consul_server_token.stdout | from_json | json_query('SecretID') }}"
+      content: "{{ consul_server_token_response.json.SecretID }}"
       dest: "{{ consul_server_token_tmp_path_bastion }}"
       owner: root
       group: root

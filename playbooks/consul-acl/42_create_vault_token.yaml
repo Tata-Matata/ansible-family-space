@@ -10,22 +10,27 @@
     import_tasks: tasks/read_mgmt_token.yaml
 
   - name: Create Vault Consul token
-    command: >
-      consul acl token create
-      -description "Vault Consul backend token"
-      -policy-name "{{ vault-acl-policy }}"
-      -format json
-      -http-addr={{ consul_api_addr }}
-      -client-cert={{ bastion_client_auth_to_consul_cert_path }}
-      -client-key={{ bastion_client_auth_to_consul_key_path }}
-      -token={{ consul_mgmt_token }}
-    register: vault_consul_token
+    uri:
+      url: "{{ consul_api_addr }}/v1/acl/token"
+      method: PUT
+      body_format: json
+      body:
+        Description: "Vault Consul backend token"
+        Policies:
+        - Name: "{{ vault-acl-policy }}"
+      headers:
+        X-Consul-Token: "{{ consul_mgmt_token }}"
+      status_code: 200
+      validate_certs: true
+      client_cert: "{{ bastion_client_auth_to_consul_cert_path }}"
+      client_key: "{{ bastion_client_auth_to_consul_key_path }}"
+    register: vault_consul_token_response
     changed_when: true
     no_log: true
 
   - name: Persist Vault Consul backend token in tmp file
     copy:
-      content: "{{ vault_consul_token.stdout | from_json | json_query('SecretID') }}"
+      content: "{{ vault_consul_token_response.json.SecretID }}"
       dest: "{{ vault_consul_token_tmp_path_bastion }}"
       owner: root
       group: root
