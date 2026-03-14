@@ -6,6 +6,9 @@
   - ../../vars/bootstrap-tls-vault-consul.yaml
   - vars/consul-acl-vars.yaml
   tasks:
+  - set_fact:
+      vault_tls_enabled: true
+      consul_tls_enabled: true
   - name: Unauthenticated KV write is denied
     uri:
       url: "{{ consul_api_key_value_addr }}/acl-test-deny"

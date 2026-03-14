@@ -6,6 +6,9 @@
   - ../../vars/bootstrap-tls-vault-consul.yaml
   - vars/consul-acl-vars.yaml
   tasks:
+  - set_fact:
+      vault_tls_enabled: true
+      consul_tls_enabled: true
   - name: Read Vault token for Consul backend from disk
     slurp:
       src: "{{ vault_consul_token_path }}"

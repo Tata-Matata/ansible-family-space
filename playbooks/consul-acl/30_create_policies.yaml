@@ -10,6 +10,9 @@
     - { name: "{{ vault-acl-policy }}", file: "30_policies/vault.hcl.j2" }
     - { name: "{{ k8s-acl-policy }}", file: "30_policies/k8s.hcl.j2" }
   tasks:
+  - set_fact:
+      vault_tls_enabled: true
+      consul_tls_enabled: true
   - name: Load Consul management token
     import_tasks: tasks/read_mgmt_token.yaml
 
