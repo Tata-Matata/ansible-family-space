@@ -27,7 +27,6 @@
     command: >
       consul acl bootstrap 
       -http-addr={{ consul_api_addr }} 
-      -ca-file={{ bastion_ca_cert_path }} 
       -client-cert={{ bastion_client_auth_to_consul_cert_path }} 
       -client-key={{ bastion_client_auth_to_consul_key_path }}
     register: consul_acl_bootstrap

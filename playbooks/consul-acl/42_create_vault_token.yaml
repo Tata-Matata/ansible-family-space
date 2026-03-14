@@ -16,7 +16,6 @@
       -policy-name "{{ vault-acl-policy }}"
       -format json
       -http-addr={{ consul_api_addr }}
-      -ca-file={{ bastion_ca_cert_path }}
       -client-cert={{ bastion_client_auth_to_consul_cert_path }}
       -client-key={{ bastion_client_auth_to_consul_key_path }}
       -token={{ consul_mgmt_token }}
