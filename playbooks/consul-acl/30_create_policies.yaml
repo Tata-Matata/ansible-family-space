@@ -14,7 +14,7 @@
     import_tasks: tasks/read_mgmt_token.yaml
 
   - name: Ensure Consul ACL policies are present
-    consul_acl_policy:
+    community.general.consul_policy:
       name: "{{ item.name }}"
       rules: "{{ lookup('template', item.file) }}"
       state: present

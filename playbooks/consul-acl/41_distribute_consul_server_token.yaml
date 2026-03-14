@@ -3,7 +3,7 @@
   gather_facts: false
   become: true
   vars_files:
-  - ../vars/bootstrap-tls-vault-consul.yaml
+  - ../../vars/bootstrap-tls-vault-consul.yaml
   - vars/consul-acl-vars.yaml
   tasks:
   - name: Read Consul server agent token
