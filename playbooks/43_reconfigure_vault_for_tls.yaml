@@ -111,7 +111,7 @@
     set_fact:
       vault_tls_enabled: true
       
-  # verify mTLS from Bastion to Vault and Consul
+  # verify mTLS from Bastion to Vault
   - name: Verify Vault HTTPS API from Bastion
     include_role:
       name: verify_https

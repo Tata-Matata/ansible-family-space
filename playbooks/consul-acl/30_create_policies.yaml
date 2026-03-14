@@ -1,0 +1,29 @@
+- hosts: bastion_primary
+  become: true
+  gather_facts: false
+  vars_files:
+  - ../../vars/bootstrap-tls-vault-consul.yaml
+  - vars/consul-acl-vars.yaml
+  vars:
+    consul_acl_policies:
+    - { name: "{{ consul-acl-policy }}", file: "30_policies/consul-servers.hcl.j2" }
+    - { name: "{{ vault-acl-policy }}", file: "30_policies/vault.hcl.j2" }
+    - { name: "{{ k8s-acl-policy }}", file: "30_policies/k8s.hcl.j2" }
+  tasks:
+  - name: Load Consul management token
+    import_tasks: tasks/read_mgmt_token.yaml
+
+  - name: Ensure Consul ACL policies are present
+    consul_acl_policy:
+      name: "{{ item.name }}"
+      rules: "{{ lookup('template', item.file) }}"
+      state: present
+      token: "{{ consul_mgmt_token }}"
+      url: "{{ consul_api_addr }}"
+      ca_path: "{{ bastion_ca_cert_path }}"
+      client_cert: "{{ bastion_client_auth_to_consul_cert_path }}"
+      client_key: "{{ bastion_client_auth_to_consul_key_path }}"
+    loop: "{{ consul_acl_policies }}"
+    loop_control:
+      label: "{{ item.name }}"
+    no_log: true

@@ -1,0 +1,45 @@
+- name: Retrieve Vault Consul backend token from bastion
+  hosts: bastion_primary
+  gather_facts: false
+  become: true
+  vars_files:
+  - ../vars/bootstrap-tls-vault-consul.yaml
+  - vars/consul-acl-vars.yaml
+  tasks:
+  - name: Read Vault Consul backend token
+    slurp:
+      src: "{{ vault_consul_token_tmp_path_bastion }}"
+    register: vault_consul_token_file
+    no_log: true
+
+  - name: Set Vault Consul backend token fact
+    set_fact:
+      vault_consul_token: "{{ vault_consul_token_file.content | b64decode | trim }}"
+    changed_when: false
+    no_log: true
+
+- name: Distribute Vault Consul backend token to Vault servers
+  hosts: vault
+  become: true
+  gather_facts: false
+  vars:
+    vault_consul_token: "{{ hostvars[groups['bastion_primary'][0]].vault_consul_token }}"
+  tasks:
+  - name: Install Vault Consul storage config
+    copy:
+      dest: "{{ vault_consul_token_path }}"
+      owner: vault
+      group: vault
+      mode: "0600"
+      content: |
+        storage "consul" {
+          address = "{{ consul_api_addr }}"
+          token   = "{{ vault_consul_token }}"
+          path    = "{{ vault_prefix_in_consul_store | default('vault/') }}"
+        }
+    no_log: true
+
+  - name: Restart Vault
+    service:
+      name: vault
+      state: restarted

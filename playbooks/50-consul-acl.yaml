@@ -6,17 +6,23 @@
 # 1. Verify TLS connectivity from Bastion to Consul and Vault
 # 2. Enable ACL system on all Consul nodes (default deny)
 # 3. Bootstrap the ACL system (generate management token)
-# 4. Create ACL policies and tokens for different services
-# 5. Distribute tokens to appropriate services
-# 6. Verify ACL enforcement
-# 7. Cleanup temporary bootstrap material
+# 4. Create ACL policies (idempotent)
+# 5. Create and distribute Consul server ACL token
+# 6. Create and distribute Vault ACL token
+# 7. Verify ACL enforcement by consumer
+# 8. Cleanup temporary bootstrap material
 #
 ###############################################################################
 
 - import_playbook: consul-acl/00_preflight_tls_verified.yaml
 - import_playbook: consul-acl/10_enable_acl.yaml
 - import_playbook: consul-acl/20_bootstrap_mgmt_token.yaml
-- import_playbook: consul-acl/40_create_tokens.yaml
-- import_playbook: consul-acl/50_distribute_tokens.yaml
-- import_playbook: consul-acl/60_verify_acl.yaml
-- import_playbook: consul-acl/cleanup.yaml
+- import_playbook: consul-acl/30_create_policies.yaml
+- import_playbook: consul-acl/40_create_consul_server_token.yaml
+- import_playbook: consul-acl/41_distribute_consul_server_token.yaml
+- import_playbook: consul-acl/42_create_vault_token.yaml
+- import_playbook: consul-acl/43_distribute_vault_token.yaml
+- import_playbook: consul-acl/81_verify_bastion_acl.yaml
+- import_playbook: consul-acl/82_verify_vault_acl.yaml
+- import_playbook: consul-acl/83_verify_consul_server_acl.yaml
+- import_playbook: consul-acl/100_cleanup.yaml

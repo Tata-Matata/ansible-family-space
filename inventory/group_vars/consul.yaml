@@ -24,5 +24,4 @@ consul_binary_path: "{{consul_install_dir}}/consul"
 # Logging
 consul_log_level: INFO
 
-# ACLs (for consul-acl playbook)
-consul_server_agent_token_path: "/etc/consul.d/token.hcl"
+

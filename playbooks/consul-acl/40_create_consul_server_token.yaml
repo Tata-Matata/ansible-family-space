@@ -1,0 +1,31 @@
+- hosts: bastion_primary
+  become: true
+  gather_facts: false
+  vars_files:
+  - ../vars/bootstrap-tls-vault-consul.yaml
+  - vars/consul-acl-vars.yaml
+  tasks:
+  - name: Load Consul management token
+    import_tasks: tasks/read_mgmt_token.yaml
+
+  - name: Create Consul server agent token
+    consul_acl_token:
+      description: "Consul server agent token"
+      policies:
+      - name: "{{ consul-acl-policy }}"
+      token: "{{ consul_mgmt_token }}"
+      url: "{{ consul_api_addr }}"
+      ca_path: "{{ bastion_ca_cert_path }}"
+      client_cert: "{{ bastion_client_auth_to_consul_cert_path }}"
+      client_key: "{{ bastion_client_auth_to_consul_key_path }}"
+    register: consul_server_token
+    no_log: true
+
+  - name: Persist Consul server agent token in tmp file
+    copy:
+      content: "{{ consul_server_token.secret }}"
+      dest: "{{ consul_server_token_tmp_path_bastion }}"
+      owner: root
+      group: root
+      mode: "0600"
+    no_log: true

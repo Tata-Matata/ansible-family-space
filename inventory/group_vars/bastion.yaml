@@ -1,5 +1,0 @@
-
-# Temporary directory on Bastion hosts where Consul ACL tokens (s. 50-consul-acl playbook) 
-# will be temporarily stored during the run, 
-# with strict permissions, the folder will be removed at the end of the run
-consul_tokens_tmp_dir: /root/.consul-acl

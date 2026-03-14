@@ -1,0 +1,58 @@
+- name: Verify Consul agent ACL usage
+  hosts: consul_servers
+  become: true
+  gather_facts: false
+  vars_files:
+  - ../vars/bootstrap-tls-vault-consul.yaml
+  - vars/consul-acl-vars.yaml
+
+  tasks:
+  - name: Read Consul agent token
+    slurp:
+      src: "{{ consul_server_token_path }}"
+    register: consul_agent_token_file
+    no_log: true
+
+  - name: Extract Consul agent token
+    set_fact:
+      consul_agent_token: >-
+        {{ (consul_agent_token_file.content | b64decode)
+           | regex_search('agent\\s*=\\s*"([^"]+)"', '\\1') }}
+    changed_when: false
+    no_log: true
+
+  - name: Agent token can read catalog
+    uri:
+      url: "{{ consul_api_addr }}/v1/catalog/services"
+      method: GET
+      headers:
+        X-Consul-Token: "{{ consul_agent_token }}"
+      status_code: 200
+      validate_certs: true
+      ca_path: "{{ consul_ca_cert_path }}"
+      client_cert: "{{ consul_server_cert_path }}"
+      client_key: "{{ consul_server_key_path }}"
+    changed_when: false
+
+  - name: Agent token cannot write arbitrary KV
+    uri:
+      url: "{{ consul_api_key_value_addr }}/random/acl-test"
+      method: PUT
+      headers:
+        X-Consul-Token: "{{ consul_agent_token }}"
+      body: "deny"
+      status_code: [ 401, 403 ]
+      validate_certs: true
+      ca_path: "{{ consul_ca_cert_path }}"
+      client_cert: "{{ consul_server_cert_path }}"
+      client_key: "{{ consul_server_key_path }}"
+    changed_when: false
+
+  - name: HTTP API is not reachable from Consul server
+    uri:
+      url: "http://127.0.0.1:{{ consul_http_port }}{{ consul_api_leader_path }}"
+      method: GET
+      status_code: 0
+    register: http_test
+    failed_when: http_test is succeeded
+    changed_when: false

@@ -1,0 +1,5 @@
+# Compatibility wrapper for previous combined verify playbook.
+
+- import_playbook: 81_verify_bastion_acl.yaml
+- import_playbook: 82_verify_consul_server_acl.yaml
+- import_playbook: 83_verify_vault_acl.yaml

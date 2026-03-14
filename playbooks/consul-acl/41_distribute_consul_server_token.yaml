@@ -1,0 +1,45 @@
+- name: Retrieve Consul server agent token from bastion
+  hosts: bastion_primary
+  gather_facts: false
+  become: true
+  vars_files:
+  - ../vars/bootstrap-tls-vault-consul.yaml
+  - vars/consul-acl-vars.yaml
+  tasks:
+  - name: Read Consul server agent token
+    slurp:
+      src: "{{ consul_server_token_tmp_path_bastion }}"
+    register: consul_server_token_file
+    no_log: true
+
+  - name: Set Consul server agent token fact
+    set_fact:
+      consul_server_agent_token: "{{ consul_server_token_file.content | b64decode | trim }}"
+    changed_when: false
+    no_log: true
+
+- name: Distribute Consul server agent token to Consul servers
+  hosts: consul_servers
+  become: true
+  gather_facts: false
+  vars:
+    consul_server_agent_token: "{{ hostvars[groups['bastion_primary'][0]].consul_server_agent_token }}"
+  tasks:
+  - name: Install Consul agent token
+    copy:
+      dest: "{{ consul_server_token_path }}"
+      owner: consul
+      group: consul
+      mode: "0600"
+      content: |
+        acl {
+          tokens {
+            agent = "{{ consul_server_agent_token }}"
+          }
+        }
+    no_log: true
+
+  - name: Restart Consul
+    service:
+      name: consul
+      state: restarted

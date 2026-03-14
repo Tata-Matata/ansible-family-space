@@ -58,10 +58,12 @@ consul_agent_api_port: "{{ consul_https_port if consul_tls_enabled else consul_h
 # used by Vault, Bastion, kubectl plugins, etc.
 consul_api_leader_path: /v1/status/leader
 consul_api_self_path: /v1/agent/self
+consul_key_value_path: /v1/kv
 
 consul_api_addr: "{{ consul_agent_api_scheme }}://{{ consul_service_name }}:{{ consul_agent_api_port }}"
 consul_api_leader_addr: "{{ consul_api_addr }}{{ consul_api_leader_path }}"
 consul_api_health_addr: "{{ consul_api_addr }}{{ consul_api_self_path }}"
+consul_api_key_value_addr: "{{ consul_api_addr }}{{ consul_key_value_path }}"
 
 # for local health checks
 consul_api_internal_leader_addr: "{{ consul_agent_api_scheme }}://{{ ansible_default_ipv4.address }}:{{ consul_agent_api_port }}{{ consul_api_leader_path }}"

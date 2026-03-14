@@ -1,0 +1,58 @@
+- name: Verify Vault Consul ACL usage
+  hosts: vault
+  become: true
+  gather_facts: false
+  vars_files:
+  - ../vars/bootstrap-tls-vault-consul.yaml
+  - vars/consul-acl-vars.yaml
+  tasks:
+  - name: Read Vault token for Consul backend from disk
+    slurp:
+      src: "{{ vault_consul_token_path }}"
+    register: vault_consul_token_file
+    no_log: true
+
+  - name: Extract Vault Consul token
+    set_fact:
+      vault_consul_token: >-
+        {{ (vault_consul_token_file.content | b64decode)
+           | regex_search('token\\s*=\\s*"([^"]+)"', '\\1') }}
+    changed_when: false
+    no_log: true
+
+  - name: Vault token can write to vault/ prefix
+    uri:
+      url: "{{ consul_api_key_value_addr }}/{{ vault_prefix_in_consul_store }}acl-test"
+      method: PUT
+      headers:
+        X-Consul-Token: "{{ vault_consul_token }}"
+      body: "ok"
+      status_code: 200
+      validate_certs: true
+      ca_path: "{{ vault_ca_cert_path }}"
+      client_cert: "{{ vault_client_auth_to_consul_cert_path }}"
+      client_key: "{{ vault_client_auth_to_consul_key_path }}"
+    changed_when: false
+
+  - name: Vault token cannot write outside vault/ prefix
+    uri:
+      url: "{{ consul_api_key_value_addr }}/not-vault/acl-test"
+      method: PUT
+      headers:
+        X-Consul-Token: "{{ vault_consul_token }}"
+      body: "deny"
+      status_code: [ 401, 403 ]
+      validate_certs: true
+      ca_path: "{{ vault_ca_cert_path }}"
+      client_cert: "{{ vault_client_auth_to_consul_cert_path }}"
+      client_key: "{{ vault_client_auth_to_consul_key_path }}"
+    changed_when: false
+
+  - name: HTTP API is not reachable from Vault
+    uri:
+      url: "http://{{ consul_service_name }}:{{ consul_http_port }}{{ consul_api_leader_path }}"
+      method: GET
+      status_code: 0
+    register: http_test
+    failed_when: http_test is succeeded
+    changed_when: false

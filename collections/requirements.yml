@@ -3,3 +3,5 @@ collections:
     version: ">=1.4.0,<1.5.0" # for Ansible core 2.12.10+; ansible.posix 1.5.0+ requires Ansible 2.14+
   - name: community.crypto
     version: ">=2.0.0,<3.0.0" # for Ansible core 2.12.10+ and 2.13.5+; these versions of community.crypto are compatible with both Ansible core 2.12 and 2.13, which allows us to use the same requirements.yml for both Ansible versions in our CI pipelines; see
+  - name: community.general # provides consul_acl_policy and consul_acl_token modules used by consul-acl playbooks
+    version: ">=7.5.0,<8.0.0" # community.general 8+ requires ansible-core >=2.13; keep compatibility with core 2.12/2.13

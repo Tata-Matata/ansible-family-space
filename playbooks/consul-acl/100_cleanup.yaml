@@ -6,5 +6,5 @@
   tasks:
     - name: Remove Consul ACL bootstrap directory
       file:
-        path: /root/.consul-acl
+        path: "{{ consul_tokens_tmp_dir }}"
         state: absent

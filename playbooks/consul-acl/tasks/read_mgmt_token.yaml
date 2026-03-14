@@ -1,0 +1,11 @@
+- name: Read Consul management token
+  slurp:
+    src: "{{ consul_tmp_management_token_path }}"
+  register: consul_mgmt_token_file
+  no_log: true
+
+- name: Set Consul management token fact
+  set_fact:
+    consul_mgmt_token: "{{ consul_mgmt_token_file.content | b64decode | trim }}"
+  changed_when: false
+  no_log: true

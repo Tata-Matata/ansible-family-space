@@ -12,5 +12,3 @@ vault_binary_path: "{{ vault_install_dir }}/vault"
 
 
 
-# ACLs (for consul-acl playbook)
-vault_consul_agent_token_path: "/etc/vault.d/consul.hcl"

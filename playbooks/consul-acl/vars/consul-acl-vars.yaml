@@ -1,0 +1,18 @@
+
+# Temporary directory on Bastion hosts where Consul ACL tokens (s. 50-consul-acl playbook) 
+# will be temporarily stored during the run, 
+# with strict permissions, the folder will be removed at the end of the run
+consul_tokens_tmp_dir: /root/.consul-acl
+consul_tmp_management_token_path: "{{ consul_tokens_tmp_dir }}/.consul-mgmt-token"
+consul_server_token_tmp_path_bastion: "{{ consul_tokens_tmp_dir }}/consul-server.token"
+vault_consul_token_tmp_path_bastion: "{{ consul_tokens_tmp_dir }}/vault-backend.token"
+
+
+
+consul-acl-policy:  "consul-servers-acl-policy"
+vault-acl-policy: "vault-acl-policy"
+k8s-acl-policy: "k8s-acl-policy"
+
+# Token files on Consul client hosts
+consul_server_token_path: "/etc/consul.d/token.hcl"
+vault_consul_token_path: "/etc/vault.d/consul.hcl"

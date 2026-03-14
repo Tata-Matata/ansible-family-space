@@ -16,6 +16,8 @@
 - hosts: bastion_primary
   become: true
   gather_facts: false
+  vars_files:
+  - ../vars/bootstrap-tls-vault-consul.yaml
   tasks:
   - name: Bootstrap Consul ACL system
     command: >
@@ -27,6 +29,28 @@
     register: consul_acl_bootstrap
     no_log: true
     changed_when: false
+    failed_when: false
+  
+  # Since logging is disabled, we want to give a hint in case if failure due to accidental re-run
+  - name: Fail with helper message when ACL bootstrap was already done
+    fail:
+      msg: >
+        Consul ACL bootstrap appears to have already been run. This playbook is one-time-only.
+        Reuse the existing management token or reset ACL bootstrap state before running this step again.
+    when:
+    - consul_acl_bootstrap.rc != 0
+    - >
+      ((consul_acl_bootstrap.stderr | default('')) ~ ' ' ~
+      (consul_acl_bootstrap.stdout | default(''))) is search('ACL bootstrap no longer allowed|bootstrap no longer allowed|already bootstrapped')
+  - name: Fail on unexpected Consul ACL bootstrap errors
+    fail:
+      msg: >
+        Consul ACL bootstrap failed for an unexpected reason.
+        Re-run with -vvv and check Consul server logs for details.
+    when:
+    - consul_acl_bootstrap.rc != 0
+    - not (((consul_acl_bootstrap.stderr | default('')) ~ ' ' ~ (consul_acl_bootstrap.stdout | default(''))) is search('ACL bootstrap no longer allowed|bootstrap no longer allowed|already bootstrapped'))
+  
   # we will store here temporarily the management token and consul-vault token in the next playbook, we will remove it at the end of the run
   - name: Ensure Consul ACL token directory exists
     file:
@@ -38,7 +62,7 @@
   - name: Store Consul management token on bastion
     copy:
       content: "{{ consul_acl_bootstrap.stdout | from_json | json_query('SecretID') }}"
-      dest: "{{ consul_tokens_tmp_dir }}/.consul-mgmt-token"
+      dest: "{{ consul_tmp_management_token_path }}"
       owner: root
       group: root
       mode: "0600"
