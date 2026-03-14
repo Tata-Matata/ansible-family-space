@@ -19,9 +19,34 @@
   vars_files:
   - ../../vars/bootstrap-tls-vault-consul.yaml
   tasks:
-  - set_fact:
+  - name: Enable TLS addressing for this run
+    set_fact:
       vault_tls_enabled: true
       consul_tls_enabled: true
+
+  - name: Ensure Bastion Consul client certificate exists
+    stat:
+      path: "{{ bastion_client_auth_to_consul_cert_path }}"
+    register: bastion_consul_client_cert
+
+  - name: Ensure Bastion Consul client key exists
+    stat:
+      path: "{{ bastion_client_auth_to_consul_key_path }}"
+    register: bastion_consul_client_key
+
+  - name: Fail if Bastion Consul client certificate is missing
+    fail:
+      msg: >
+        Missing Bastion Consul client certificate at {{ bastion_client_auth_to_consul_cert_path }}.
+        Re-run TLS distribution before ACL bootstrap.
+    when: not bastion_consul_client_cert.stat.exists
+
+  - name: Fail if Bastion Consul client key is missing
+    fail:
+      msg: >
+        Missing Bastion Consul client key at {{ bastion_client_auth_to_consul_key_path }}.
+        Re-run TLS distribution before ACL bootstrap.
+    when: not bastion_consul_client_key.stat.exists
       
   - name: Bootstrap Consul ACL system
     command: >
@@ -45,14 +70,39 @@
     - >
       ((consul_acl_bootstrap.stderr | default('')) ~ ' ' ~
       (consul_acl_bootstrap.stdout | default(''))) is search('ACL bootstrap no longer allowed|bootstrap no longer allowed|already bootstrapped')
+
+  - name: Fail with explicit TLS/connection hint
+    fail:
+      msg: >
+        Consul ACL bootstrap failed due to TLS or connectivity issue from Bastion to Consul API.
+        Check DNS for {{ consul_service_name }}, client cert/key validity, and server certificate SAN.
+    when:
+    - consul_acl_bootstrap.rc != 0
+    - >
+      ((consul_acl_bootstrap.stderr | default('')) ~ ' ' ~
+      (consul_acl_bootstrap.stdout | default(''))) is search('x509|certificate|unknown authority|tls|handshake|connection refused|dial tcp|no such host')
+
+  - name: Fail with explicit ACL permission hint
+    fail:
+      msg: >
+        Consul ACL bootstrap request was denied by Consul ACLs.
+        Most likely ACL bootstrap has already been consumed, or another ACL token is required for this endpoint in current state.
+    when:
+    - consul_acl_bootstrap.rc != 0
+    - >
+      ((consul_acl_bootstrap.stderr | default('')) ~ ' ' ~
+      (consul_acl_bootstrap.stdout | default(''))) is search('Permission denied|ACL not found|403')
+
   - name: Fail on unexpected Consul ACL bootstrap errors
     fail:
       msg: >
         Consul ACL bootstrap failed for an unexpected reason.
-        Re-run with -vvv and check Consul server logs for details.
+        Re-run with -vvv and check Bastion-side command stderr and Consul server logs for details.
     when:
     - consul_acl_bootstrap.rc != 0
     - not (((consul_acl_bootstrap.stderr | default('')) ~ ' ' ~ (consul_acl_bootstrap.stdout | default(''))) is search('ACL bootstrap no longer allowed|bootstrap no longer allowed|already bootstrapped'))
+    - not (((consul_acl_bootstrap.stderr | default('')) ~ ' ' ~ (consul_acl_bootstrap.stdout | default(''))) is search('x509|certificate|unknown authority|tls|handshake|connection refused|dial tcp|no such host'))
+    - not (((consul_acl_bootstrap.stderr | default('')) ~ ' ' ~ (consul_acl_bootstrap.stdout | default(''))) is search('Permission denied|ACL not found|403'))
   
   # we will store here temporarily the management token and consul-vault token in the next playbook, we will remove it at the end of the run
   - name: Ensure Consul ACL token directory exists
