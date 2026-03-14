@@ -1,0 +1,58 @@
+- name: Render ACL policy rules
+  set_fact:
+    consul_acl_policy_rules: "{{ lookup('template', policy_item.file) }}"
+  changed_when: false
+  no_log: true
+
+- name: Read ACL policy by name
+  uri:
+    url: "{{ consul_api_addr }}/v1/acl/policy/name/{{ policy_item.name | urlencode }}"
+    method: GET
+    headers:
+      X-Consul-Token: "{{ consul_mgmt_token }}"
+    status_code: [200, 404]
+    validate_certs: true
+    client_cert: "{{ bastion_client_auth_to_consul_cert_path }}"
+    client_key: "{{ bastion_client_auth_to_consul_key_path }}"
+  register: consul_acl_policy_existing
+  changed_when: false
+  no_log: true
+
+- name: Create ACL policy when missing
+  uri:
+    url: "{{ consul_api_addr }}/v1/acl/policy"
+    method: PUT
+    body_format: json
+    body:
+      Name: "{{ policy_item.name }}"
+      Rules: "{{ consul_acl_policy_rules }}"
+    headers:
+      X-Consul-Token: "{{ consul_mgmt_token }}"
+    status_code: 200
+    validate_certs: true
+    client_cert: "{{ bastion_client_auth_to_consul_cert_path }}"
+    client_key: "{{ bastion_client_auth_to_consul_key_path }}"
+  when: consul_acl_policy_existing.status == 404
+  changed_when: true
+  no_log: true
+
+- name: Update ACL policy when rules changed
+  uri:
+    url: "{{ consul_api_addr }}/v1/acl/policy/{{ consul_acl_policy_existing.json.ID }}"
+    method: PUT
+    body_format: json
+    body:
+      ID: "{{ consul_acl_policy_existing.json.ID }}"
+      Name: "{{ policy_item.name }}"
+      Rules: "{{ consul_acl_policy_rules }}"
+    headers:
+      X-Consul-Token: "{{ consul_mgmt_token }}"
+    status_code: 200
+    validate_certs: true
+    client_cert: "{{ bastion_client_auth_to_consul_cert_path }}"
+    client_key: "{{ bastion_client_auth_to_consul_key_path }}"
+  when:
+  - consul_acl_policy_existing.status == 200
+  - (consul_acl_policy_existing.json.Rules | default('') | trim) != (consul_acl_policy_rules | trim)
+  changed_when: true
+  no_log: true

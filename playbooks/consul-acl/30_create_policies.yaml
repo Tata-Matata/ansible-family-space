@@ -17,16 +17,8 @@
     import_tasks: tasks/read_mgmt_token.yaml
 
   - name: Ensure Consul ACL policies are present
-    community.general.consul_policy:
-      name: "{{ item.name }}"
-      rules: "{{ lookup('template', item.file) }}"
-      state: present
-      token: "{{ consul_mgmt_token }}"
-      url: "{{ consul_api_addr }}"
-      ca_path: "{{ bastion_ca_cert_path }}"
-      client_cert: "{{ bastion_client_auth_to_consul_cert_path }}"
-      client_key: "{{ bastion_client_auth_to_consul_key_path }}"
+    include_tasks: tasks/upsert_acl_policy.yaml
     loop: "{{ consul_acl_policies }}"
     loop_control:
-      label: "{{ item.name }}"
-    no_log: true
+      loop_var: policy_item
+      label: "{{ policy_item.name }}"
