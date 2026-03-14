@@ -6,6 +6,9 @@
   - vars/consul-acl-vars.yaml
 
   tasks:
+  - set_fact:
+      vault_tls_enabled: true
+      consul_tls_enabled: true
   - name: Load Consul management token
     import_tasks: tasks/read_mgmt_token.yaml
 
