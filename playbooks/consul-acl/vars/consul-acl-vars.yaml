@@ -9,9 +9,9 @@ vault_consul_token_tmp_path_bastion: "{{ consul_tokens_tmp_dir }}/vault-backend.
 
 
 
-consul-acl-policy:  "consul-servers-acl-policy"
-vault-acl-policy: "vault-acl-policy"
-k8s-acl-policy: "k8s-acl-policy"
+consul_acl_policy: "consul-servers-acl-policy"
+vault_acl_policy: "vault-acl-policy"
+k8s_acl_policy: "k8s-acl-policy"
 
 # Token files on Consul client hosts
 consul_server_token_path: "/etc/consul.d/token.hcl"

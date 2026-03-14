@@ -17,7 +17,7 @@
       body:
         Description: "Vault Consul backend token"
         Policies:
-        - Name: "{{ vault-acl-policy }}"
+        - Name: "{{ vault_acl_policy }}"
       headers:
         X-Consul-Token: "{{ consul_mgmt_token }}"
       status_code: 200

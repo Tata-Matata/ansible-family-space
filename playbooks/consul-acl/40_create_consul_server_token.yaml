@@ -16,7 +16,7 @@
       body:
         Description: "Consul server agent token"
         Policies:
-        - Name: "{{ consul-acl-policy }}"
+        - Name: "{{ consul_acl_policy }}"
       headers:
         X-Consul-Token: "{{ consul_mgmt_token }}"
       status_code: 200

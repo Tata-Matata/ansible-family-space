@@ -6,9 +6,9 @@
   - vars/consul-acl-vars.yaml
   vars:
     consul_acl_policies:
-    - { name: "{{ consul-acl-policy }}", file: "30_policies/consul-servers.hcl.j2" }
-    - { name: "{{ vault-acl-policy }}", file: "30_policies/vault.hcl.j2" }
-    - { name: "{{ k8s-acl-policy }}", file: "30_policies/k8s.hcl.j2" }
+    - { name: "{{ consul_acl_policy }}", file: "30_policies/consul-servers.hcl.j2" }
+    - { name: "{{ vault_acl_policy }}", file: "30_policies/vault.hcl.j2" }
+    - { name: "{{ k8s_acl_policy }}", file: "30_policies/k8s.hcl.j2" }
   tasks:
   - set_fact:
       vault_tls_enabled: true
