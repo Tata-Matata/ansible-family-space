@@ -18,9 +18,18 @@
   - name: Extract Vault Consul token
     set_fact:
       vault_consul_token: >-
-        {{ ((vault_consul_token_file.content | b64decode)
-           | regex_findall("(?im)^\\s*token\\s*=\\s*[\"']?([^\"'\\s#]+)[\"']?" )
-           | first) | default('') }}
+        {{ (
+             ((vault_consul_token_file.content | b64decode)
+              | regex_findall('(?im)^\\s*token\\s*=\\s*(.+)$')
+              | first
+              | default(''))
+             | regex_replace('\\s*(#.*)?$', '')
+             | regex_replace('^"', '')
+             | regex_replace('"$', '')
+             | regex_replace("^'", '')
+             | regex_replace("'$", '')
+             | trim
+           ) }}
     changed_when: false
     no_log: true
 

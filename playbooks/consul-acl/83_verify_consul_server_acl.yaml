@@ -19,9 +19,18 @@
   - name: Extract Consul agent token
     set_fact:
       consul_agent_token: >-
-        {{ ((consul_agent_token_file.content | b64decode)
-           | regex_findall("(?im)^\\s*agent\\s*=\\s*[\"']?([^\"'\\s#]+)[\"']?" )
-           | first) | default('') }}
+        {{ (
+             ((consul_agent_token_file.content | b64decode)
+              | regex_findall('(?im)^\\s*agent\\s*=\\s*(.+)$')
+              | first
+              | default(''))
+             | regex_replace('\\s*(#.*)?$', '')
+             | regex_replace('^"', '')
+             | regex_replace('"$', '')
+             | regex_replace("^'", '')
+             | regex_replace("'$", '')
+             | trim
+           ) }}
     changed_when: false
     no_log: true
 
