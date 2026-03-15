@@ -1,10 +1,12 @@
 # What Vault is allowed to do inside Consul.
 
-key_prefix "" {
+# Vault data must stay scoped to its configured KV prefix.
+key_prefix "{{ vault_prefix_in_consul_store }}" {
   policy = "write"
 }
 
-session_prefix "{{ vault_prefix_in_consul_store }}" {
+# Consul sessions used for Vault HA are not namespaced by KV prefix.
+session_prefix "" {
   policy = "write"
 }
 
