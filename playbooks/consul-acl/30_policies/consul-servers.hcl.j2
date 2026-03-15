@@ -44,11 +44,6 @@ session_prefix "" {
   policy = "write"
 }
 
-# controls KV store 
-key_prefix "" {
-  policy = "write"
-}
-
 # controls ACL system itself (policies, tokens)
 # does not allow creating policies, tokens, ACLs
 acl = "read"
@@ -96,10 +91,7 @@ acl = "read"
 # so Consul server needs to initiate sessions to  call its own API
 
 
-#### KEY 
-# A key is an entry in Consul’s KV store (vault/core/, vault/logical/, locks/service-x, config/app1)
-# This is not service discovery. This is state storage.
-# Consul servers are the authority for the KV store. 
-# Although Vault writes KV via its own token, Consul Servers “just replicate” them via Raft,
-# in practice, some internal paths touch KV state for upgrades, snapshots, disaster recovery
-# HashiCorp’s own examples always include it for servers.
+#### KEY
+# Arbitrary KV writes are intentionally not granted to the Consul server agent token.
+# Server coordination uses node/service/agent/session permissions; application KV access
+# should be granted only through dedicated policies and tokens.
