@@ -15,4 +15,6 @@ k8s_acl_policy: "k8s-acl-policy"
 
 # Token files on Consul client hosts
 consul_server_token_path: "/etc/consul.d/token.hcl"
-vault_consul_token_path: "/etc/vault.d/consul.hcl"
+consul_server_agent_token_raw_path: "/etc/consul.d/agent.token"
+vault_consul_storage_config_path: "/etc/vault.d/consul.hcl"
+vault_consul_token_path: "/etc/vault.d/consul.token"

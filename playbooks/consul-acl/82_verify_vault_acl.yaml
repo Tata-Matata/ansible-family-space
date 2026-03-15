@@ -9,18 +9,23 @@
   - set_fact:
       vault_tls_enabled: true
       consul_tls_enabled: true
-  - name: Read Vault Consul token from HCL
-    include_tasks: tasks/read_hcl_value.yaml
-    vars:
-      hcl_file_path: "{{ vault_consul_token_path }}"
-      hcl_key_path: "storage.consul.token"
-      hcl_output_var: "vault_consul_token"
+  - name: Read Vault Consul token from token file
+    slurp:
+      src: "{{ vault_consul_token_path }}"
+    register: vault_consul_token_file
+    no_log: true
+
+  - name: Set Vault Consul token fact
+    set_fact:
+      vault_consul_token: "{{ vault_consul_token_file.content | b64decode | trim }}"
+    changed_when: false
+    no_log: true
 
   - name: Fail when Vault Consul token cannot be parsed
     fail:
       msg: >-
-        Could not parse token from {{ vault_consul_token_path }}.
-        Expected: token = "<secret>"
+        Could not read token from {{ vault_consul_token_path }}.
+        Expected raw token content in this file.
     when: (vault_consul_token | default('') | trim) == ''
 
   - name: Vault token can write to vault/ prefix

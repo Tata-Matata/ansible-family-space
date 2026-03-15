@@ -28,6 +28,15 @@
   vars:
     consul_server_agent_token: "{{ hostvars[groups['bastion_primary'][0]].consul_server_agent_token }}"
   tasks:
+  - name: Install Consul agent token raw file
+    copy:
+      dest: "{{ consul_server_agent_token_raw_path }}"
+      owner: consul
+      group: consul
+      mode: "0600"
+      content: "{{ consul_server_agent_token }}"
+    no_log: true
+
   - name: Install Consul agent token
     copy:
       dest: "{{ consul_server_token_path }}"

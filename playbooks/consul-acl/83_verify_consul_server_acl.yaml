@@ -10,18 +10,23 @@
   - set_fact:
       vault_tls_enabled: true
       consul_tls_enabled: true
-  - name: Read Consul agent token from HCL
-    include_tasks: tasks/read_hcl_value.yaml
-    vars:
-      hcl_file_path: "{{ consul_server_token_path }}"
-      hcl_key_path: "acl.tokens.agent"
-      hcl_output_var: "consul_agent_token"
+  - name: Read Consul agent token from token file
+    slurp:
+      src: "{{ consul_server_agent_token_raw_path }}"
+    register: consul_agent_token_file
+    no_log: true
 
-  - name: Fail when Consul agent token cannot be parsed
+  - name: Set Consul agent token fact
+    set_fact:
+      consul_agent_token: "{{ consul_agent_token_file.content | b64decode | trim }}"
+    changed_when: false
+    no_log: true
+
+  - name: Fail when Consul agent token cannot be read
     fail:
       msg: >-
-        Could not parse agent token from {{ consul_server_token_path }}.
-        Expected: agent = "<secret>"
+        Could not read agent token from {{ consul_server_agent_token_raw_path }}.
+        Expected raw token content in this file.
     when: (consul_agent_token | default('') | trim) == ''
 
   - name: Agent token can read catalog

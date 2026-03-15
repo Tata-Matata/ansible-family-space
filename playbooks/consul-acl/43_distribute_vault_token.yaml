@@ -28,17 +28,26 @@
   vars:
     vault_consul_token: "{{ hostvars[groups['bastion_primary'][0]].vault_consul_token }}"
   tasks:
-  - name: Install Vault Consul storage config
+  - name: Install Vault Consul token file
     copy:
       dest: "{{ vault_consul_token_path }}"
       owner: vault
       group: vault
       mode: "0600"
+      content: "{{ vault_consul_token }}"
+    no_log: true
+
+  - name: Install Vault Consul storage config
+    copy:
+      dest: "{{ vault_consul_storage_config_path }}"
+      owner: vault
+      group: vault
+      mode: "0640"
       content: |
         storage "consul" {
           address = "{{ consul_api_addr }}"
-          token   = "{{ vault_consul_token }}"
-          path    = "{{ vault_prefix_in_consul_store | default('vault/') }}"
+          token_file = "{{ vault_consul_token_path }}"
+          path    = "{{ vault_prefix_in_consul_store }}"
         }
     no_log: true
 
