@@ -15,6 +15,10 @@
 
   tasks:
 
+    - name: Enable Vault TLS mode for URL construction
+      set_fact:
+        vault_tls_enabled: true
+
     # --------------------------------------------------
     # Ensure state directory exists (ON VAULT NODE)
     # --------------------------------------------------
