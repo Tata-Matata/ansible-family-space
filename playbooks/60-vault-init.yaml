@@ -9,8 +9,8 @@
 
   environment:
     VAULT_ADDR: "{{ vault_addr }}"
-    VAULT_CLIENT_CERT: "{{ vault_client_cert_file }}"
-    VAULT_CLIENT_KEY: "{{ vault_client_key_file }}"
+    VAULT_CLIENT_CERT: "{{ vault_server_cert_path }}"
+    VAULT_CLIENT_KEY: "{{ vault_server_key_path }}"
     VAULT_CACERT: "{{ vault_ca_cert_path }}"
 
   tasks:
