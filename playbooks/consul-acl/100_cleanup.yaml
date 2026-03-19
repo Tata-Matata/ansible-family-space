@@ -3,7 +3,7 @@
   become: true
   gather_facts: false
   vars_files:
-  - vars/consul-acl-vars.yaml
+  - ../../vars/consul-acl-vars.yaml
   tasks:
     - name: Remove Consul ACL bootstrap directory
       file:

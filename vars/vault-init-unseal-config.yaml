@@ -1,0 +1,3 @@
+vault_state_dir: "/var/lib/vault-state"
+vault_init_file: "{{ vault_state_dir }}/init.json"
+vault_addr: "https://127.0.0.1:{{vault_api_port}}"

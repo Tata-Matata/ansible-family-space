@@ -18,7 +18,7 @@
   gather_facts: false
   vars_files:
   - ../../vars/bootstrap-tls-vault-consul.yaml
-  - vars/consul-acl-vars.yaml
+  - ../../vars/consul-acl-vars.yaml
   tasks:
   - name: Enable TLS addressing for this run
     set_fact:

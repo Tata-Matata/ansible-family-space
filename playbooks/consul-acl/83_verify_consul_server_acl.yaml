@@ -4,7 +4,7 @@
   gather_facts: false
   vars_files:
   - ../../vars/bootstrap-tls-vault-consul.yaml
-  - vars/consul-acl-vars.yaml
+  - ../../vars/consul-acl-vars.yaml
 
   tasks:
   - set_fact:

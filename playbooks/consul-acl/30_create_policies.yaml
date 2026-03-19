@@ -3,7 +3,7 @@
   gather_facts: false
   vars_files:
   - ../../vars/bootstrap-tls-vault-consul.yaml
-  - vars/consul-acl-vars.yaml
+  - ../../vars/consul-acl-vars.yaml
   vars:
     consul_acl_policies:
     - { name: "{{ consul_acl_policy }}", file: "30_policies/consul-servers.hcl.j2" }

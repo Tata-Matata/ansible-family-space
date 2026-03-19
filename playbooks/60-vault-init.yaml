@@ -1,0 +1,112 @@
+---
+- name: Initialize Vault (if not already initialized)
+  hosts: "{{ groups['vault'][0] }}"
+  become: true
+
+  vars_files:
+  - ../vars/vault-init-unseal-config.yaml
+  - ../vars/bootstrap-tls-vault-consul.yaml
+
+  environment:
+    VAULT_ADDR: "{{ vault_addr }}"
+    VAULT_CLIENT_CERT: "{{ vault_client_cert_file }}"
+    VAULT_CLIENT_KEY: "{{ vault_client_key_file }}"
+    VAULT_CACERT: "{{ vault_ca_cert_path }}"
+
+  tasks:
+
+    # --------------------------------------------------
+    # Ensure state directory exists (ON VAULT NODE)
+    # --------------------------------------------------
+    - name: Ensure Vault state directory exists
+      file:
+        path: "{{ vault_state_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    # --------------------------------------------------
+    # Check Vault status (local API)
+    # --------------------------------------------------
+    - name: Check Vault status
+      command: vault status -format=json
+      register: vault_status_raw
+      changed_when: false
+      failed_when: >
+        vault_status_raw.rc != 0 and
+        (vault_status_raw.stdout is not defined or vault_status_raw.stdout == "")
+
+    - name: Parse Vault status
+      set_fact:
+        vault_status: "{{ vault_status_raw.stdout | from_json }}"
+
+
+    - name: Show Vault state
+      debug:
+        msg: "Vault state: {{ vault_status.initialized }}"
+    
+    # --------------------------------------------------
+    # Fail if Vault is already initialized
+    # --------------------------------------------------
+    - name: Fail if Vault already initialized
+      fail:
+        msg: "Vault is already initialized. Aborting."
+      when: vault_status.initialized
+
+    # --------------------------------------------------
+    # Initialize Vault (ONLY once per cluster)
+    # --------------------------------------------------
+    - name: Initialize Vault
+      command: >
+        vault operator init
+        -key-shares=5
+        -key-threshold=3
+        -format=json
+      register: vault_init_output
+      when: not vault_status.initialized
+      changed_when: true
+
+    # --------------------------------------------------
+    # Persist init output (LOCAL to Vault node)
+    # --------------------------------------------------
+    - name: Save Vault init output
+      copy:
+        content: "{{ vault_init_output.stdout }}"
+        dest: "{{ vault_init_file }}"
+        owner: root
+        group: root
+        mode: "0600"
+      when: not vault_status.initialized
+
+    # --------------------------------------------------
+    # Ensure init file exists (critical safety)
+    # --------------------------------------------------
+    - name: Check init file exists
+      stat:
+        path: "{{ vault_init_file }}"
+      register: vault_init_file_stat
+
+    - name: Fail if init file missing
+      fail:
+        msg: "Vault init file is missing! Initialization may have failed."
+      when: not vault_init_file_stat.stat.exists
+
+    # --------------------------------------------------
+    # Read init file (for validation only)
+    # --------------------------------------------------
+    - name: Read init file
+      slurp:
+        path: "{{ vault_init_file }}"
+      register: vault_init_file_raw
+
+    - name: Parse init file
+      set_fact:
+        vault_init_data: "{{ vault_init_file_raw.content | b64decode | from_json }}"
+
+    - name: Show summary (safe fields only)
+      debug:
+        msg:
+          - "Vault initialized: {{ vault_status.initialized }}"
+          - "Unseal keys count: {{ vault_init_data.unseal_keys_b64 | length }}"
+      no_log: true
