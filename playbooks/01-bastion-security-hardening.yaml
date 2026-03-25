@@ -6,7 +6,14 @@
   vars:
     private_iface: enp7s0
     public_iface: eth0
+    wireguard_port: 51820
     git_ssh_key_path: /root/.ssh/git_ed25519
+    allowed_egress_tcp_ports:
+      - 53
+      - 80
+      - 443
+    allowed_egress_udp_ports:
+      - 53
 
   tasks:
     - name: Ensure required packages are installed
@@ -60,6 +67,33 @@
       when:
         - ssh_password_auth_cfg.changed or ssh_root_login_cfg.changed or ssh_pubkey_auth_cfg.changed
 
+    - name: Validate SSH allowed subnet
+      ansible.builtin.assert:
+        that:
+          - ssh_allowed_subnet is defined
+          - ssh_allowed_subnet | length > 0
+          - ssh_allowed_subnet is match('^((25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])/(3[0-2]|[12]?[0-9])$')
+        fail_msg: Pass ssh_allowed_subnet as an extra var, for example `-e ssh_allowed_subnet=10.50.1.0/24`, to define the CIDR allowed to reach SSH on bastion.
+
+    - name: Build allowed egress source IPs from inventory
+      ansible.builtin.set_fact:
+        internet_access_source_ips: >-
+          {{
+            groups['all']
+            | difference(groups['bastion'] | default([]))
+            | map('extract', hostvars)
+            | selectattr('ansible_host', 'defined')
+            | map(attribute='ansible_host')
+            | unique
+            | list
+          }}
+
+    - name: Validate allowed egress source IPs
+      ansible.builtin.assert:
+        that:
+          - internet_access_source_ips | length > 0
+        fail_msg: No non-bastion hosts with ansible_host were found in inventory, so forwarding rules cannot be built.
+
     # -----------------------------
     # iptables INPUT chain hardening
     # -----------------------------
@@ -85,16 +119,36 @@
       command: iptables -I INPUT 2 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
       when: input_established_exists.rc != 0
 
-    # Accept SSH on port 22
-    - name: Check INPUT SSH rule
+    # Accept SSH on port 22 only from the allowed subnet
+    - name: Check INPUT unrestricted SSH rule
       command: iptables -C INPUT -p tcp --dport 22 -j ACCEPT
-      register: input_ssh_exists
+      register: input_ssh_unrestricted_exists
       failed_when: false
       changed_when: false
 
-    - name: Allow INPUT SSH
-      command: iptables -I INPUT 3 -p tcp --dport 22 -j ACCEPT
-      when: input_ssh_exists.rc != 0
+    - name: Remove INPUT unrestricted SSH rule
+      command: iptables -D INPUT -p tcp --dport 22 -j ACCEPT
+      when: input_ssh_unrestricted_exists.rc == 0
+
+    - name: Check INPUT SSH rule for allowed subnet
+      command: iptables -C INPUT -p tcp -s {{ ssh_allowed_subnet }} --dport 22 -j ACCEPT
+      register: input_ssh_subnet_exists
+      failed_when: false
+      changed_when: false
+
+    - name: Allow INPUT SSH from allowed subnet
+      command: iptables -I INPUT 3 -p tcp -s {{ ssh_allowed_subnet }} --dport 22 -j ACCEPT
+      when: input_ssh_subnet_exists.rc != 0
+
+    - name: Check INPUT WireGuard rule
+      command: iptables -C INPUT -p udp --dport {{ wireguard_port }} -j ACCEPT
+      register: input_wireguard_exists
+      failed_when: false
+      changed_when: false
+
+    - name: Allow INPUT WireGuard from anywhere
+      command: iptables -I INPUT 4 -p udp --dport {{ wireguard_port }} -j ACCEPT
+      when: input_wireguard_exists.rc != 0
 
     # Drop everything else on INPUT
     - name: Check INPUT default DROP policy
@@ -165,36 +219,87 @@
     # -----------------------------
     # IPTABLES NAT + forwarding
     # -----------------------------
-    # NAT masquerade rule
-    # Check rule existence (exit code 0 = exists, 1 = does not exist)
-    - name: Add NAT masquerade rule if missing
+    # NAT masquerade rules for inventory hosts that are allowed to reach the Internet
+    - name: Check broad NAT masquerade rule
       command: >
         iptables -t nat -C POSTROUTING -o {{ public_iface }} -j MASQUERADE
-      register: nat_masquerade_exists
+      register: nat_masquerade_broad_exists
       #without this, would exit with code 1 if rule missing. Ansible would treat this as fatal error
       failed_when: false 
       changed_when: false
 
-    # add if doesn't exist
-    - name: Apply NAT masquerade rule
+    - name: Remove broad NAT masquerade rule
       command: >
-        iptables -t nat -A POSTROUTING -o {{ public_iface }} -j MASQUERADE
-      when: nat_masquerade_exists.rc != 0
+        iptables -t nat -D POSTROUTING -o {{ public_iface }} -j MASQUERADE
+      when: nat_masquerade_broad_exists.rc == 0
+
+    - name: Check scoped NAT masquerade rules
+      command: >
+        iptables -t nat -C POSTROUTING -s {{ item }} -o {{ public_iface }} -j MASQUERADE
+      register: nat_masquerade_scoped_checks
+      failed_when: false
+      changed_when: false
+      loop: "{{ internet_access_source_ips }}"
+      loop_control:
+        label: "{{ item }}"
+
+    - name: Apply scoped NAT masquerade rules
+      command: >
+        iptables -t nat -A POSTROUTING -s {{ item.item }} -o {{ public_iface }} -j MASQUERADE
+      when: item.rc != 0
+      loop: "{{ nat_masquerade_scoped_checks.results }}"
+      loop_control:
+        label: "{{ item.item }}"
 
     # Private to public forwarding rules
     # Check rule existence (exit code 0 = exists, 1 = does not exist)
-    - name: Check forward rule private → public
+    - name: Check broad forward rule private → public
       command: >
         iptables -C FORWARD -i {{ private_iface }} -o {{ public_iface }} -j ACCEPT
-      register: priv_to_pub_fwd_exists
+      register: priv_to_pub_fwd_broad_exists
       failed_when: false
       changed_when: false
 
-    # add if doesn't exist
-    - name: Allow forward private → public
+    - name: Remove broad forward rule private → public
       command: >
-        iptables -A FORWARD -i {{ private_iface }} -o {{ public_iface }} -j ACCEPT
-      when: priv_to_pub_fwd_exists.rc != 0
+        iptables -D FORWARD -i {{ private_iface }} -o {{ public_iface }} -j ACCEPT
+      when: priv_to_pub_fwd_broad_exists.rc == 0
+
+    - name: Check allowed TCP forward rules private → public
+      command: >
+        iptables -C FORWARD -i {{ private_iface }} -o {{ public_iface }} -s {{ item.0 }} -p tcp --dport {{ item.1 }} -j ACCEPT
+      register: priv_to_pub_tcp_fwd_checks
+      failed_when: false
+      changed_when: false
+      loop: "{{ internet_access_source_ips | product(allowed_egress_tcp_ports) | list }}"
+      loop_control:
+        label: "{{ item.0 }} tcp/{{ item.1 }}"
+
+    - name: Allow TCP forward private → public for inventory hosts
+      command: >
+        iptables -A FORWARD -i {{ private_iface }} -o {{ public_iface }} -s {{ item.item.0 }} -p tcp --dport {{ item.item.1 }} -j ACCEPT
+      when: item.rc != 0
+      loop: "{{ priv_to_pub_tcp_fwd_checks.results }}"
+      loop_control:
+        label: "{{ item.item.0 }} tcp/{{ item.item.1 }}"
+
+    - name: Check allowed UDP forward rules private → public
+      command: >
+        iptables -C FORWARD -i {{ private_iface }} -o {{ public_iface }} -s {{ item.0 }} -p udp --dport {{ item.1 }} -j ACCEPT
+      register: priv_to_pub_udp_fwd_checks
+      failed_when: false
+      changed_when: false
+      loop: "{{ internet_access_source_ips | product(allowed_egress_udp_ports) | list }}"
+      loop_control:
+        label: "{{ item.0 }} udp/{{ item.1 }}"
+
+    - name: Allow UDP forward private → public for inventory hosts
+      command: >
+        iptables -A FORWARD -i {{ private_iface }} -o {{ public_iface }} -s {{ item.item.0 }} -p udp --dport {{ item.item.1 }} -j ACCEPT
+      when: item.rc != 0
+      loop: "{{ priv_to_pub_udp_fwd_checks.results }}"
+      loop_control:
+        label: "{{ item.item.0 }} udp/{{ item.item.1 }}"
 
     # Public to private established connection forwarding rules
     # Check rule existence (exit code 0 = exists, 1 = does not exist)
@@ -210,6 +315,16 @@
       command: >
         iptables -A FORWARD -i {{ public_iface }} -o {{ private_iface }} -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
       when: pub_to_priv_established_exists.rc != 0
+
+    - name: Check FORWARD default DROP policy
+      shell: iptables -L FORWARD -n | head -1 | grep -q 'policy DROP'
+      register: forward_drop_policy
+      failed_when: false
+      changed_when: false
+
+    - name: Set FORWARD default policy to DROP
+      command: iptables -P FORWARD DROP
+      when: forward_drop_policy.rc != 0
 
     # Persist iptables rules
     - name: Ensure iptables-persistent is installed
