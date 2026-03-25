@@ -1,0 +1,63 @@
+---
+- name: Vault init preflight check
+  hosts: "{{ groups['vault'][0] }}"
+  become: true
+
+  vars_files:
+  - ../vars/vault-init-unseal-config.yaml
+  - ../vars/bootstrap-tls-vault-consul.yaml
+
+  environment:
+    VAULT_ADDR: "{{ vault_api_addr }}"
+    VAULT_CLIENT_CERT: "{{ vault_server_cert_path }}"
+    VAULT_CLIENT_KEY: "{{ vault_server_key_path }}"
+    VAULT_CACERT: "{{ vault_ca_cert_path }}"
+
+  tasks:
+    - name: Ensure Vault state directory exists
+      file:
+        path: "{{ vault_state_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Verify Vault service is running
+      command: systemctl is-active vault
+      register: vault_service_status
+      changed_when: false
+      failed_when: vault_service_status.stdout != 'active'
+
+    - name: Verify Vault HTTPS API is reachable
+      include_role:
+        name: verify_https
+      vars:
+        verify_https_name: "Vault api preflight"
+        verify_https_url: "{{ vault_api_health_addr }}"
+        verify_https_client_cert: "{{ vault_server_cert_path }}"
+        verify_https_client_key: "{{ vault_server_key_path }}"
+        verify_https_ca_cert: "{{ vault_ca_cert_path }}"
+        verify_https_expected_status: [200, 429, 501]
+
+    - name: Check Vault status
+      command:
+        argv:
+          - vault
+          - status
+          - -format=json
+          - -address={{ vault_api_addr }}
+      register: vault_status_raw
+      changed_when: false
+      failed_when: >
+        vault_status_raw.rc != 0 and
+        (vault_status_raw.stdout is not defined or vault_status_raw.stdout == "")
+
+    - name: Parse Vault status
+      set_fact:
+        vault_status: "{{ vault_status_raw.stdout | from_json }}"
+
+    - name: Show Vault preflight state
+      debug:
+        msg:
+          - "Vault initialized: {{ vault_status.initialized }}"
+          - "Vault sealed: {{ vault_status.sealed }}"

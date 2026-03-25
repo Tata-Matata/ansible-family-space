@@ -46,11 +46,10 @@
       set_fact:
         vault_status: "{{ vault_status_raw.stdout | from_json }}"
 
-
     - name: Show Vault state
       debug:
         msg: "Vault state: {{ vault_status.initialized }}"
-    
+
     # --------------------------------------------------
     # Fail if Vault is already initialized
     # --------------------------------------------------
