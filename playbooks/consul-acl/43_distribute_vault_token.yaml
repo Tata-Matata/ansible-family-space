@@ -37,21 +37,29 @@
       content: "{{ vault_consul_token }}"
     no_log: true
 
-  - name: Install Vault Consul storage config
-    copy:
-      dest: "{{ vault_consul_storage_config_path }}"
-      owner: vault
-      group: vault
-      mode: "0640"
-      content: |
-        storage "consul" {
-          address = "{{ consul_api_addr }}"
-          token_file = "{{ vault_consul_token_path }}"
-          path    = "{{ vault_prefix_in_consul_store }}"
-        }
-    no_log: true
+  - name: Render Vault config via vault role
+    import_role:
+      name: vault
+      tasks_from: configure
 
   - name: Restart Vault
     service:
       name: vault
       state: restarted
+
+  - name: Verify Vault service is running
+    command: systemctl is-active vault
+    register: vault_service_status
+    changed_when: false
+    failed_when: vault_service_status.stdout != 'active'
+
+  - name: Verify Vault HTTPS API is reachable after restart
+    include_role:
+      name: verify_https
+    vars:
+      verify_https_name: "Vault api after token distribution"
+      verify_https_url: "{{ vault_api_health_addr }}"
+      verify_https_client_cert: "{{ vault_server_cert_path }}"
+      verify_https_client_key: "{{ vault_server_key_path }}"
+      verify_https_ca_cert: "{{ vault_ca_cert_path }}"
+      verify_https_expected_status: [200, 429, 501]

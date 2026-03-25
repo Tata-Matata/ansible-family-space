@@ -30,7 +30,12 @@
     # Check Vault status (local API)
     # --------------------------------------------------
     - name: Check Vault status
-      command: vault status -format=json
+      command:
+        argv:
+          - vault
+          - status
+          - -format=json
+          - -address={{ vault_api_addr }}
       register: vault_status_raw
       changed_when: false
       failed_when: >
@@ -58,11 +63,15 @@
     # Initialize Vault (ONLY once per cluster)
     # --------------------------------------------------
     - name: Initialize Vault
-      command: >
-        vault operator init
-        -key-shares=5
-        -key-threshold=3
-        -format=json
+      command:
+        argv:
+          - vault
+          - operator
+          - init
+          - -key-shares=5
+          - -key-threshold=3
+          - -format=json
+          - -address={{ vault_api_addr }}
       register: vault_init_output
       when: not vault_status.initialized
       changed_when: true
