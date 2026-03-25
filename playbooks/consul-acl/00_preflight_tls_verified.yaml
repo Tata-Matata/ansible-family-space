@@ -4,10 +4,6 @@
   vars_files:
     - ../../vars/bootstrap-tls-vault-consul.yaml
   tasks:
-  - name: Enable Vault TLS mode for URL construction
-    set_fact:
-      vault_tls_enabled: true
-      consul_tls_enabled: true
       
   # verify mTLS from Bastion to Vault
   - name: Verify Vault HTTPS API from Bastion

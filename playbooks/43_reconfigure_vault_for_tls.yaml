@@ -36,12 +36,7 @@
       name: vault
       state: stopped
 
-
-  - name: Enable Vault and Consul TLS modes
-    set_fact:
-      vault_tls_enabled: true
-      consul_tls_enabled: true
-      
+     
   - name: Render Vault config
     import_role:
       name: vault
@@ -106,11 +101,7 @@
   gather_facts: false
   vars_files:
     - ../vars/bootstrap-tls-vault-consul.yaml
-  tasks:
-  - name: Enable Vault TLS mode for URL construction
-    set_fact:
-      vault_tls_enabled: true
-      
+  tasks:      
   # verify mTLS from Bastion to Vault
   - name: Verify Vault HTTPS API from Bastion
     include_role:

@@ -24,8 +24,8 @@ dns_entries:
 ######################################################
 ######### Consul  ####################################
 ######################################################
-# TLS lifecycle flag (flipped by bootstrap-tls playbook via set_fact)
-consul_tls_enabled: false
+# TLS lifecycle flag (flipped via set_fact at initial installation when TLS is still disabled)
+consul_tls_enabled: true
 
 # HTTP or HTTPS depending on TLS phase
 consul_agent_api_scheme: "{{ 'https' if consul_tls_enabled else 'http' }}"
@@ -74,8 +74,8 @@ consul_api_internal_health_addr: "{{ consul_agent_api_scheme }}://{{ ansible_def
 ######### Vault  #####################################
 ######################################################
 
-# TLS lifecycle flag (flipped by bootstrap-tls playbook via set_fact)
-vault_tls_enabled: false
+# TLS lifecycle flag (flipped via set_fact at initial installation when TLS is still disabled)
+vault_tls_enabled: true
 
 # HTTP or HTTPS depending on TLS phase
 vault_api_scheme: "{{ 'https' if vault_tls_enabled else 'http' }}"

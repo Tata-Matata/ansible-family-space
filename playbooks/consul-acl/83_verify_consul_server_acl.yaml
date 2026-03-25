@@ -7,9 +7,6 @@
   - ../../vars/consul-acl-vars.yaml
 
   tasks:
-  - set_fact:
-      vault_tls_enabled: true
-      consul_tls_enabled: true
   - name: Read Consul agent token from token file
     slurp:
       src: "{{ consul_server_agent_token_raw_path }}"

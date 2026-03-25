@@ -20,11 +20,6 @@
   - ../../vars/bootstrap-tls-vault-consul.yaml
   - ../../vars/consul-acl-vars.yaml
   tasks:
-  - name: Enable TLS addressing for this run
-    set_fact:
-      vault_tls_enabled: true
-      consul_tls_enabled: true
-
   - name: Ensure Bastion Consul client certificate exists
     stat:
       path: "{{ bastion_client_auth_to_consul_cert_path }}"

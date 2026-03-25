@@ -36,12 +36,6 @@
       name: consul
       state: stopped
 
-  # the fact affects the configuration template and is used to conditionally render TLS settings
-  # must be set before re-rendering the configuration
-  - name: Enable Consul TLS mode
-    set_fact:
-      consul_tls_enabled: true
-
   - name: Re-render Consul configuration with TLS verification enabled
     import_role:
       name: consul
@@ -95,11 +89,7 @@
   gather_facts: false
   vars_files:
     - ../vars/bootstrap-tls-vault-consul.yaml
-  tasks:
-  - name: Enable Consul TLS mode for URL construction
-    set_fact:
-      consul_tls_enabled: true
-      
+  tasks:    
   - name: Verify Consul HTTPS API from Bastion
     include_role:
       name: verify_https

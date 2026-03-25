@@ -1,3 +1,8 @@
+# the fact affects the configuration template and is used to conditionally render TLS settings
+# must be set before re-rendering the configuration
+# set_fact stores the variable as a host-level fact
+# so it works here in the second play because it runs on the same hosts
+# otherwise, the fact set in one play would not be automatically shared with the second play
 - name: Set Vault and Consul TLS modes to disabled
   hosts: vault
   gather_facts: false
@@ -7,7 +12,7 @@
         vault_tls_enabled: false
         consul_tls_enabled: false
 
-- name: Install and configure Vault
+- name: Install and configure Vault with TLS disabled
   hosts: vault
   become: true
   gather_facts: true
