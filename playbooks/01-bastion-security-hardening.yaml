@@ -185,12 +185,21 @@
       register: listening_ports
       changed_when: false
 
-    - name: Check for listening ports other than SSH 22
-      ansible.builtin.shell: ss -tulpenH | awk '$5 !~ /:22$/ {print}'
+    # Ignore systemd-resolved on loopback :53 and DHCP client sockets on :68;
+    # these are expected local infrastructure services, not extra exposed bastion daemons.
+    - name: Check for unexpected listening ports other than SSH 22
+      ansible.builtin.shell: >
+        ss -tulpenH |
+        awk '
+          $5 ~ /:22$/ { next }
+          $5 == "127.0.0.53%lo:53" { next }
+          $1 == "udp" && $5 ~ /:68$/ { next }
+          { print }
+        '
       register: non_ssh_listeners
       changed_when: false
 
-    - name: Warn if non-SSH listening ports are present
+    - name: Warn if unexpected listening ports are present
       ansible.builtin.debug:
         msg: "Investigate non-SSH listening ports: {{ non_ssh_listeners.stdout_lines | join(' | ') }}"
       when: non_ssh_listeners.stdout | length > 0
