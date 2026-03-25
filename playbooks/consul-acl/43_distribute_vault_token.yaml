@@ -37,10 +37,33 @@
       content: "{{ vault_consul_token }}"
     no_log: true
 
+  - name: Ensure Vault systemd override directory exists
+    file:
+      path: "{{ vault_consul_systemd_override_path | dirname }}"
+      state: directory
+      owner: root
+      group: root
+      mode: "0755"
+
+  - name: Install Vault Consul token systemd override
+    copy:
+      dest: "{{ vault_consul_systemd_override_path }}"
+      owner: root
+      group: root
+      mode: "0600"
+      content: |
+        [Service]
+        Environment=CONSUL_HTTP_TOKEN={{ vault_consul_token }}
+    no_log: true
+
   - name: Render Vault config via vault role
     import_role:
       name: vault
       tasks_from: configure
+
+  - name: Reload systemd
+    systemd:
+      daemon_reload: true
 
   - name: Restart Vault
     service:

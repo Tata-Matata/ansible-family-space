@@ -11,9 +11,6 @@ ui = true
 # path defines where inside Consul's KV store Vault data lives.
 storage "consul" {
   address = "{{ consul_api_addr }}"
-  {% if vault_consul_token_path is defined %}
-  token_file = "{{ vault_consul_token_path }}"
-  {% endif %}
   path    = "{{ vault_prefix_in_consul_store }}"
 
   {% if vault_tls_enabled %}
