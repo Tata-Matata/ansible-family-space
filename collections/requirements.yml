@@ -1,7 +1,7 @@
 collections:
   - name: ansible.posix
-    version: ">=2.0.0,<3.0.0" # for Ansible core 2.20.4; ansible.posix 2.x requires Ansible core 2.15+
+    version: ">=2.0.0,<3.0.0" # for Ansible core 2.17.14; ansible.posix 2.x requires Ansible core 2.15+
   - name: community.crypto
-    version: ">=3.0.0,<4.0.0" # for Ansible core 2.20.4; community.crypto 3.x requires Ansible core 2.17+
+    version: ">=3.0.0,<4.0.0" # for Ansible core 2.17.14; community.crypto 3.x requires Ansible core 2.17+
   - name: community.general # provides consul_policy module used by consul-acl playbooks
-    version: ">=12.0.0,<13.0.0" # for Ansible core 2.20.4; community.general 12.x requires Ansible core 2.17+ and is tested with core 2.20
+    version: ">=12.0.0,<13.0.0" # for Ansible core 2.17.14; community.general 12.x requires Ansible core 2.17+ and is tested with core 2.17
