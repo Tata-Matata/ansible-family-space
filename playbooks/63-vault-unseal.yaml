@@ -1,0 +1,117 @@
+---
+- name: Unseal Vault
+  hosts: "{{ groups['vault'][0] }}"
+  become: true
+
+  vars_files:
+  - ../vars/vault-init-unseal-config.yaml
+  - ../vars/bootstrap-tls-vault-consul.yaml
+
+  environment:
+    VAULT_ADDR: "{{ vault_api_addr }}"
+    VAULT_CLIENT_CERT: "{{ vault_server_cert_path }}"
+    VAULT_CLIENT_KEY: "{{ vault_server_key_path }}"
+    VAULT_CACERT: "{{ vault_ca_cert_path }}"
+
+  tasks:
+    - name: Ensure Vault init file exists
+      stat:
+        path: "{{ vault_init_file }}"
+      register: vault_init_file_stat
+
+    - name: Fail if Vault init file is missing
+      fail:
+        msg: "Vault init file is missing at {{ vault_init_file }}. Cannot unseal Vault."
+      when: not vault_init_file_stat.stat.exists
+
+    - name: Read init file
+      slurp:
+        path: "{{ vault_init_file }}"
+      register: vault_init_file_raw
+
+    - name: Parse init file
+      set_fact:
+        vault_init_data: "{{ vault_init_file_raw.content | b64decode | from_json }}"
+      no_log: true
+
+    - name: Derive required unseal keys
+      set_fact:
+        vault_required_unseal_keys: "{{ vault_init_data.unseal_keys_b64[: (vault_init_data.unseal_threshold | int)] }}"
+      no_log: true
+
+    - name: Check Vault status before unseal
+      command:
+        argv:
+          - vault
+          - status
+          - -format=json
+          - -address={{ vault_api_addr }}
+      register: vault_status_before_raw
+      changed_when: false
+      failed_when: >
+        vault_status_before_raw.rc != 0 and
+        (vault_status_before_raw.stdout is not defined or vault_status_before_raw.stdout == "")
+
+    - name: Parse Vault status before unseal
+      set_fact:
+        vault_status_before: "{{ vault_status_before_raw.stdout | from_json }}"
+
+    - name: Assert Vault is initialized before unseal
+      assert:
+        that:
+          - vault_status_before.initialized
+        fail_msg: "Vault is not initialized. Run 61-vault-init first."
+
+    - name: Unseal Vault with required key shares
+      command:
+        argv:
+          - vault
+          - operator
+          - unseal
+          - "{{ item }}"
+          - -address={{ vault_api_addr }}
+      register: vault_unseal_results
+      changed_when: true
+      loop: "{{ vault_required_unseal_keys }}"
+      loop_control:
+        label: "unseal key"
+      when: vault_status_before.sealed
+      no_log: true
+
+    - name: Login with initial root token
+      command:
+        argv:
+          - vault
+          - login
+          - -address={{ vault_api_addr }}
+          - "{{ vault_init_data.root_token }}"
+      register: vault_login_result
+      changed_when: false
+      no_log: true
+
+    - name: Check Vault status after unseal
+      command:
+        argv:
+          - vault
+          - status
+          - -format=json
+          - -address={{ vault_api_addr }}
+      register: vault_status_after_raw
+      changed_when: false
+
+    - name: Parse Vault status after unseal
+      set_fact:
+        vault_status_after: "{{ vault_status_after_raw.stdout | from_json }}"
+
+    - name: Assert Vault is initialized and unsealed
+      assert:
+        that:
+          - vault_status_after.initialized
+          - not vault_status_after.sealed
+        fail_msg: "Expected Vault to be initialized and unsealed after unseal, got initialized={{ vault_status_after.initialized }} sealed={{ vault_status_after.sealed }}."
+
+    - name: Show Vault state after unseal
+      debug:
+        msg:
+          - "Vault initialized: {{ vault_status_after.initialized }}"
+          - "Vault sealed: {{ vault_status_after.sealed }}"

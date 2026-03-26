@@ -1,0 +1,72 @@
+---
+- name: Vault unseal preflight check
+  hosts: "{{ groups['vault'][0] }}"
+  become: true
+
+  vars_files:
+  - ../vars/vault-init-unseal-config.yaml
+  - ../vars/bootstrap-tls-vault-consul.yaml
+
+  environment:
+    VAULT_ADDR: "{{ vault_api_addr }}"
+    VAULT_CLIENT_CERT: "{{ vault_server_cert_path }}"
+    VAULT_CLIENT_KEY: "{{ vault_server_key_path }}"
+    VAULT_CACERT: "{{ vault_ca_cert_path }}"
+
+  tasks:
+    - name: Ensure Vault init file exists
+      stat:
+        path: "{{ vault_init_file }}"
+      register: vault_init_file_stat
+
+    - name: Fail if Vault init file is missing
+      fail:
+        msg: "Vault init file is missing at {{ vault_init_file }}. Run 61-vault-init first."
+      when: not vault_init_file_stat.stat.exists
+
+    - name: Verify Vault service is running
+      command: systemctl is-active vault
+      register: vault_service_status
+      changed_when: false
+      failed_when: vault_service_status.stdout != 'active'
+
+    - name: Verify Vault HTTPS API is reachable while sealed
+      include_role:
+        name: verify_https
+      vars:
+        verify_https_name: "Vault api before unseal"
+        verify_https_url: "{{ vault_api_health_addr }}"
+        verify_https_client_cert: "{{ vault_server_cert_path }}"
+        verify_https_client_key: "{{ vault_server_key_path }}"
+        verify_https_ca_cert: "{{ vault_ca_cert_path }}"
+        verify_https_expected_status: [503]
+
+    - name: Check Vault status
+      command:
+        argv:
+          - vault
+          - status
+          - -format=json
+          - -address={{ vault_api_addr }}
+      register: vault_status_raw
+      changed_when: false
+      failed_when: >
+        vault_status_raw.rc != 0 and
+        (vault_status_raw.stdout is not defined or vault_status_raw.stdout == "")
+
+    - name: Parse Vault status
+      set_fact:
+        vault_status: "{{ vault_status_raw.stdout | from_json }}"
+
+    - name: Assert Vault is initialized and sealed before unseal
+      assert:
+        that:
+          - vault_status.initialized
+          - vault_status.sealed
+        fail_msg: "Expected Vault to be initialized and sealed before unseal, got initialized={{ vault_status.initialized }} sealed={{ vault_status.sealed }}."
+
+    - name: Show Vault unseal preflight state
+      debug:
+        msg:
+          - "Vault initialized: {{ vault_status.initialized }}"
+          - "Vault sealed: {{ vault_status.sealed }}"
