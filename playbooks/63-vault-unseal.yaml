@@ -68,8 +68,8 @@
           - vault
           - operator
           - unseal
-          - "{{ item }}"
           - -address={{ vault_api_addr }}
+          - "{{ item }}"
       register: vault_unseal_results
       changed_when: true
       loop: "{{ vault_required_unseal_keys }}"

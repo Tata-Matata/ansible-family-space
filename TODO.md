@@ -22,3 +22,11 @@
     - `tasks/bootstrap-tls-vault-consul/30_distribute_tls_vault.yaml` (ensure + assert tasks)
   - Create a centralized source of truth for TLS file permissions
   - Makes future permission changes simpler and less error-prone
+
+## Developer Workflow
+
+- [ ] Add `lefthook` with a Bash validation script for Ansible playbooks
+  - Run syntax and YAML validation before commit
+  - Scope checks to playbooks and related Ansible files when possible
+  - Keep the hook implementation in a plain Bash script committed to the repo
+  - Document local setup and expected hook behavior
