@@ -1,0 +1,5 @@
+vault_ssh_secrets_mount_path: "ssh"
+vault_ssh_ca_config_path: "{{ vault_ssh_secrets_mount_path }}/config/ca"
+vault_ssh_ca_public_key_file: "/var/lib/vault-state/trusted-user-ca-keys.pem"
+vault_ssh_trusted_user_ca_keys_path: "/etc/ssh/trusted-user-ca-keys.pem"
+vault_ssh_sshd_config_path: "/etc/ssh/sshd_config"

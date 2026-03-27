@@ -1,0 +1,143 @@
+---
+- name: Enable Vault SSH secrets engine and generate SSH CA
+  hosts: "{{ groups['vault'][0] }}"
+  become: true
+
+  vars:
+    vault_cli_env:
+      VAULT_ADDR: "{{ vault_api_addr }}"
+      VAULT_CLIENT_CERT: "{{ vault_server_cert_path }}"
+      VAULT_CLIENT_KEY: "{{ vault_server_key_path }}"
+      VAULT_CACERT: "{{ vault_ca_cert_path }}"
+    vault_cli_auth_env: "{{ vault_cli_env | combine({'VAULT_TOKEN': vault_init_data.root_token}) }}"
+
+  vars_files:
+    - ../vars/vault-init-unseal-config.yaml
+    - ../vars/bootstrap-tls-vault-consul.yaml
+    - ../vars/vault-config-ssh.yaml
+
+  environment: "{{ vault_cli_env }}"
+
+  tasks:
+    - name: Ensure Vault init file exists
+      stat:
+        path: "{{ vault_init_file }}"
+      register: vault_init_file_stat
+
+    - name: Fail if Vault init file is missing
+      fail:
+        msg: "Vault init file is missing at {{ vault_init_file }}. Initialize Vault first."
+      when: not vault_init_file_stat.stat.exists
+
+    - name: Read Vault init file
+      slurp:
+        path: "{{ vault_init_file }}"
+      register: vault_init_file_raw
+
+    - name: Parse Vault init file
+      set_fact:
+        vault_init_data: "{{ vault_init_file_raw.content | b64decode | from_json }}"
+      no_log: true
+
+    - name: Check Vault status
+      command:
+        argv:
+          - vault
+          - status
+          - -format=json
+          - -address={{ vault_api_addr }}
+      register: vault_status_raw
+      changed_when: false
+      failed_when: >
+        vault_status_raw.rc != 0 and
+        (vault_status_raw.stdout is not defined or vault_status_raw.stdout == "")
+
+    - name: Parse Vault status
+      set_fact:
+        vault_status: "{{ vault_status_raw.stdout | from_json }}"
+
+    - name: Assert Vault is initialized and unsealed
+      assert:
+        that:
+          - vault_status.initialized
+          - not vault_status.sealed
+        fail_msg: "Expected Vault to be initialized and unsealed before configuring SSH CA, got initialized={{ vault_status.initialized }} sealed={{ vault_status.sealed }}."
+
+    - name: Check enabled Vault secrets engines
+      command:
+        argv:
+          - vault
+          - secrets
+          - list
+          - -format=json
+          - -address={{ vault_api_addr }}
+      register: vault_secrets_list_raw
+      changed_when: false
+      environment: "{{ vault_cli_auth_env }}"
+      no_log: true
+
+    - name: Parse enabled Vault secrets engines
+      set_fact:
+        vault_secrets_list: "{{ vault_secrets_list_raw.stdout | from_json }}"
+      no_log: true
+
+    - name: Enable Vault SSH secrets engine
+      command:
+        argv:
+          - vault
+          - secrets
+          - enable
+          - -path={{ vault_ssh_secrets_mount_path }}
+          - -address={{ vault_api_addr }}
+          - ssh
+      when: (vault_ssh_secrets_mount_path ~ '/') not in vault_secrets_list
+      environment: "{{ vault_cli_auth_env }}"
+      register: vault_enable_ssh_engine
+      changed_when: true
+      no_log: true
+
+    - name: Read Vault SSH CA public key
+      command:
+        argv:
+          - vault
+          - read
+          - -field=public_key
+          - -address={{ vault_api_addr }}
+          - "{{ vault_ssh_ca_config_path }}"
+      register: vault_ssh_ca_public_key_read
+      changed_when: false
+      failed_when: false
+      environment: "{{ vault_cli_auth_env }}"
+      no_log: true
+
+    - name: Generate Vault SSH CA key pair
+      command:
+        argv:
+          - vault
+          - write
+          - -field=public_key
+          - -address={{ vault_api_addr }}
+          - "{{ vault_ssh_ca_config_path }}"
+          - generate_signing_key=true
+      register: vault_ssh_ca_public_key_generated
+      when: vault_ssh_ca_public_key_read.rc != 0 or (vault_ssh_ca_public_key_read.stdout | trim) == ''
+      changed_when: true
+      environment: "{{ vault_cli_auth_env }}"
+      no_log: true
+
+    - name: Select Vault SSH CA public key
+      set_fact:
+        vault_ssh_ca_public_key: "{{ (vault_ssh_ca_public_key_generated.stdout if (vault_ssh_ca_public_key_generated is defined and not (vault_ssh_ca_public_key_generated.skipped | default(false))) else vault_ssh_ca_public_key_read.stdout) | trim }}"
+
+    - name: Fail if Vault SSH CA public key is empty
+      fail:
+        msg: "Vault SSH CA public key is empty after enable/generate workflow."
+      when: (vault_ssh_ca_public_key | default('') | trim) == ''
+
+    - name: Persist Vault SSH CA public key on Vault host
+      copy:
+        dest: "{{ vault_ssh_ca_public_key_file }}"
+        owner: root
+        group: root
+        mode: "0644"
+        content: "{{ vault_ssh_ca_public_key }}\n"

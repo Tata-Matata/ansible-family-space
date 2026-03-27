@@ -1,0 +1,70 @@
+---
+- name: Read Vault SSH CA public key from Vault host
+  hosts: "{{ groups['vault'][0] }}"
+  become: true
+  gather_facts: false
+
+  vars_files:
+  - ../vars/vault-config-ssh.yaml
+
+  tasks:
+    - name: Ensure Vault SSH CA public key file exists
+      stat:
+        path: "{{ vault_ssh_ca_public_key_file }}"
+      register: vault_ssh_ca_public_key_file_stat
+
+    - name: Fail if Vault SSH CA public key file is missing
+      fail:
+        msg: "Vault SSH CA public key file is missing at {{ vault_ssh_ca_public_key_file }}. Run 70-vault-generate-ssh-ca first."
+      when: not vault_ssh_ca_public_key_file_stat.stat.exists
+
+    - name: Read Vault SSH CA public key file
+      slurp:
+        path: "{{ vault_ssh_ca_public_key_file }}"
+      register: vault_ssh_ca_public_key_file_raw
+
+    - name: Set Vault SSH CA public key fact
+      set_fact:
+        vault_ssh_ca_public_key: "{{ vault_ssh_ca_public_key_file_raw.content | b64decode | trim }}"
+
+- name: Distribute Vault SSH CA public key to all hosts
+  hosts: all
+  become: true
+  gather_facts: false
+
+  vars_files:
+  - ../vars/vault-config-ssh.yaml
+
+  vars:
+    vault_ssh_ca_public_key: "{{ hostvars[groups['vault'][0]].vault_ssh_ca_public_key }}"
+
+  tasks:
+    - name: Gather service facts
+      ansible.builtin.service_facts:
+
+    - name: Select SSH service name
+      ansible.builtin.set_fact:
+        ssh_service_name: "{{ 'ssh' if 'ssh.service' in ansible_facts.services else 'sshd' }}"
+
+    - name: Install trusted user CA public key
+      copy:
+        dest: "{{ vault_ssh_trusted_user_ca_keys_path }}"
+        owner: root
+        group: root
+        mode: "0644"
+        content: "{{ vault_ssh_ca_public_key }}\n"
+      register: trusted_user_ca_key_file
+
+    - name: Configure TrustedUserCAKeys in sshd_config
+      lineinfile:
+        path: "{{ vault_ssh_sshd_config_path }}"
+        regexp: '^\s*#?\s*TrustedUserCAKeys\s+'
+        line: "TrustedUserCAKeys {{ vault_ssh_trusted_user_ca_keys_path }}"
+      register: trusted_user_ca_keys_cfg
+
+    - name: Restart SSH service when TrustedUserCAKeys config changed
+      systemd:
+        name: "{{ ssh_service_name }}"
+        state: restarted
+      when:
+        - trusted_user_ca_key_file.changed or trusted_user_ca_keys_cfg.changed
