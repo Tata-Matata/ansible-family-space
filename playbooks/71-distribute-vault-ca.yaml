@@ -28,7 +28,7 @@
         vault_ssh_ca_public_key: "{{ vault_ssh_ca_public_key_file_raw.content | b64decode | trim }}"
 
 - name: Distribute Vault SSH CA public key to all hosts
-  hosts: all
+  hosts: vault:consul:bastion
   become: true
   gather_facts: false
 
