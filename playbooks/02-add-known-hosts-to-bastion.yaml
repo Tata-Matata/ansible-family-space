@@ -7,7 +7,7 @@
         host: "{{ hostvars[item].ansible_host }}"
         port: 22
         timeout: 60
-      loop: "{{ groups['consul'] + groups['vault'] }}"
+      loop: "{{ groups['consul'] + groups['vault'] + groups['oidc'] }}"
     # hashing known_hosts prevents leaking sensitive information about the infrastructure 
     # in case the known_hosts file is exposed; 
     # it also prevents potential issues with duplicate hostnames/IPs in the known_hosts file 
