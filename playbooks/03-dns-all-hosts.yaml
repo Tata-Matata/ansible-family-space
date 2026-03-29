@@ -4,6 +4,7 @@
   - bastion
   - vault
   - consul
+  - oidc
   become: true
   gather_facts: false
 
