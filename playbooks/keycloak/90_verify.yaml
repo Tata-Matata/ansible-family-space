@@ -1,0 +1,73 @@
+---
+- name: Verify Keycloak deployment and Vault client configuration
+  hosts: oidc
+  become: true
+  gather_facts: false
+
+  vars_files:
+    - ../../vars/keycloak.yaml
+    - ../../vars/keycloak-secrets.yaml
+
+  tasks:
+    - name: Verify Keycloak readiness endpoint
+      uri:
+        url: "{{ keycloak_healthcheck_url }}"
+        method: GET
+        status_code: 200
+
+    - name: Authenticate Keycloak admin CLI
+      command:
+        argv:
+          - docker
+          - exec
+          - "{{ keycloak_container_name }}"
+          - /opt/keycloak/bin/kcadm.sh
+          - config
+          - credentials
+          - --server
+          - http://127.0.0.1:8080
+          - --realm
+          - master
+          - --user
+          - "{{ keycloak_admin_user }}"
+          - --password
+          - "{{ keycloak_admin_password }}"
+      changed_when: false
+      no_log: true
+
+    - name: Read Keycloak realm
+      command:
+        argv:
+          - docker
+          - exec
+          - "{{ keycloak_container_name }}"
+          - /opt/keycloak/bin/kcadm.sh
+          - get
+          - realms/{{ keycloak_realm_name }}
+      register: keycloak_realm_read
+      changed_when: false
+      no_log: true
+
+    - name: Read Keycloak Vault client
+      command:
+        argv:
+          - docker
+          - exec
+          - "{{ keycloak_container_name }}"
+          - /opt/keycloak/bin/kcadm.sh
+          - get
+          - clients
+          - -r
+          - "{{ keycloak_realm_name }}"
+          - -q
+          - clientId={{ keycloak_vault_client_id }}
+      register: keycloak_vault_client_read
+      changed_when: false
+      no_log: true
+
+    - name: Show Keycloak follow-up values for Vault OIDC config
+      debug:
+        msg:
+          - "Keycloak discovery URL: {{ keycloak_base_url }}/realms/{{ keycloak_realm_name }}"
+          - "Vault OIDC client id: {{ keycloak_vault_client_id }}"
+          - "Redirect URIs configured in Keycloak: {{ keycloak_vault_redirect_uris | join(', ') }}"

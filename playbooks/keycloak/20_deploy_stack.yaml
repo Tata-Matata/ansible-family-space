@@ -1,0 +1,59 @@
+---
+# Render and start the PostgreSQL + Keycloak containers on the OIDC VM.
+- name: Render and deploy Keycloak container stack
+  hosts: oidc
+  become: true
+  gather_facts: false
+
+  vars_files:
+    - ../../vars/keycloak.yaml
+    - ../../vars/keycloak-secrets.yaml
+
+  tasks:
+    - name: Write PostgreSQL environment file
+      copy:
+        dest: "{{ keycloak_db_env_file }}"
+        owner: root
+        group: root
+        mode: "0600"
+        content: |
+          POSTGRES_DB={{ keycloak_postgres_db }}
+          POSTGRES_USER={{ keycloak_postgres_user }}
+          POSTGRES_PASSWORD={{ keycloak_postgres_password }}
+      no_log: true
+
+    - name: Write Keycloak environment file
+      copy:
+        dest: "{{ keycloak_env_file }}"
+        owner: root
+        group: root
+        mode: "0600"
+        content: |
+          KC_DB=postgres
+          KC_DB_URL=jdbc:postgresql://postgres:5432/{{ keycloak_postgres_db }}
+          KC_DB_USERNAME={{ keycloak_postgres_user }}
+          KC_DB_PASSWORD={{ keycloak_postgres_password }}
+          KC_BOOTSTRAP_ADMIN_USERNAME={{ keycloak_admin_user }}
+          KC_BOOTSTRAP_ADMIN_PASSWORD={{ keycloak_admin_password }}
+          KC_HEALTH_ENABLED=true
+          KC_METRICS_ENABLED=true
+      no_log: true
+
+    - name: Render Keycloak compose file
+      template:
+        src: templates/keycloak-compose.yaml.j2
+        dest: "{{ keycloak_compose_file }}"
+        owner: root
+        group: root
+        mode: "0640"
+
+    - name: Start Keycloak stack
+      command:
+        argv:
+          - docker
+          - compose
+          - -f
+          - "{{ keycloak_compose_file }}"
+          - up
+          - -d
+      changed_when: true

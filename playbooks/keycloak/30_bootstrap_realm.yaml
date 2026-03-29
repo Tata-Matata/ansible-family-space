@@ -1,0 +1,110 @@
+---
+- name: Bootstrap Keycloak realm and admin group
+  hosts: oidc
+  become: true
+  gather_facts: false
+
+  vars_files:
+    - ../../vars/keycloak.yaml
+    - ../../vars/keycloak-secrets.yaml
+
+  tasks:
+    - name: Wait for Keycloak readiness endpoint
+      uri:
+        url: "{{ keycloak_healthcheck_url }}"
+        method: GET
+        status_code: 200
+      register: keycloak_health
+      retries: 30
+      delay: 5
+      until: keycloak_health.status == 200
+
+    - name: Authenticate Keycloak admin CLI
+      command:
+        argv:
+          - docker
+          - exec
+          - "{{ keycloak_container_name }}"
+          - /opt/keycloak/bin/kcadm.sh
+          - config
+          - credentials
+          - --server
+          - http://127.0.0.1:8080
+          - --realm
+          - master
+          - --user
+          - "{{ keycloak_admin_user }}"
+          - --password
+          - "{{ keycloak_admin_password }}"
+      changed_when: false
+      no_log: true
+
+    - name: Check Keycloak realm
+      command:
+        argv:
+          - docker
+          - exec
+          - "{{ keycloak_container_name }}"
+          - /opt/keycloak/bin/kcadm.sh
+          - get
+          - realms/{{ keycloak_realm_name }}
+      register: keycloak_realm_check
+      failed_when: false
+      changed_when: false
+      no_log: true
+
+    - name: Create Keycloak realm
+      command:
+        argv:
+          - docker
+          - exec
+          - "{{ keycloak_container_name }}"
+          - /opt/keycloak/bin/kcadm.sh
+          - create
+          - realms
+          - -s
+          - realm={{ keycloak_realm_name }}
+          - -s
+          - enabled=true
+      when: keycloak_realm_check.rc != 0
+      changed_when: true
+      no_log: true
+
+    - name: Query Keycloak admin group
+      command:
+        argv:
+          - docker
+          - exec
+          - "{{ keycloak_container_name }}"
+          - /opt/keycloak/bin/kcadm.sh
+          - get
+          - groups
+          - -r
+          - "{{ keycloak_realm_name }}"
+          - -q
+          - search={{ keycloak_admin_group_name }}
+      register: keycloak_admin_group_query
+      changed_when: false
+      no_log: true
+
+    - name: Parse Keycloak admin group query
+      set_fact:
+        keycloak_admin_group_matches: "{{ keycloak_admin_group_query.stdout | from_json }}"
+      no_log: true
+
+    - name: Create Keycloak admin group
+      command:
+        argv:
+          - docker
+          - exec
+          - "{{ keycloak_container_name }}"
+          - /opt/keycloak/bin/kcadm.sh
+          - create
+          - groups
+          - -r
+          - "{{ keycloak_realm_name }}"
+          - -s
+          - name={{ keycloak_admin_group_name }}
+      when: keycloak_admin_group_matches | length == 0
+      changed_when: true
+      no_log: true

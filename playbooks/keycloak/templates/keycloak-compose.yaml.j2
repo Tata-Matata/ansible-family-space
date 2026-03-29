@@ -1,0 +1,35 @@
+services:
+  postgres:
+    image: {{ keycloak_postgres_image }}
+    container_name: {{ keycloak_postgres_container_name }}
+    restart: unless-stopped
+    env_file:
+      - {{ keycloak_db_env_file }}
+    volumes:
+      - {{ keycloak_postgres_data_dir }}:/var/lib/postgresql/data
+    networks:
+      - keycloak
+
+  keycloak:
+    image: {{ keycloak_image }}
+    container_name: {{ keycloak_container_name }}
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    env_file:
+      - {{ keycloak_env_file }}
+    command:
+      - start
+      - --hostname={{ oidc_service_name }}
+      - --http-enabled=true
+      - --proxy-headers=xforwarded
+    ports:
+      - "{{ keycloak_port }}:8080"
+    volumes:
+      - {{ keycloak_data_dir }}:/opt/keycloak/data
+    networks:
+      - keycloak
+
+networks:
+  keycloak:
+    driver: bridge

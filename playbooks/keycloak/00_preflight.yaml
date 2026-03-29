@@ -1,0 +1,36 @@
+---
+# Validate inventory and required variables before installing the Keycloak stack.
+# This playbook does not assume Keycloak or PostgreSQL are already installed.
+- name: Keycloak preflight checks
+  hosts: oidc
+  become: true
+  gather_facts: false
+
+  vars_files:
+    - ../../vars/keycloak.yaml
+    - ../../vars/keycloak-secrets.yaml
+
+  tasks:
+    - name: Ensure OIDC inventory group is populated
+      assert:
+        that:
+          - groups['oidc'] is defined
+          - groups['oidc'] | length > 0
+        fail_msg: Add at least one host to the oidc group in inventory before running 80-keycloak.yaml.
+
+    - name: Validate secrets needed for Keycloak stack installation and bootstrap are set
+      assert:
+        that:
+          - keycloak_postgres_password | length > 0
+          - keycloak_admin_password | length > 0
+          - keycloak_vault_client_secret | length > 0
+        fail_msg: Fill keycloak_postgres_password, keycloak_admin_password, and keycloak_vault_client_secret in vars/keycloak-secrets.yaml and encrypt it with Ansible Vault before running 80-keycloak.yaml.
+
+    - name: Validate Keycloak stack network and realm settings
+      assert:
+        that:
+          - oidc_service_name | length > 0
+          - keycloak_port | int > 0
+          - keycloak_realm_name | length > 0
+          - keycloak_vault_client_id | length > 0
+        fail_msg: Review vars/keycloak.yaml and provide the required Keycloak network and realm settings.

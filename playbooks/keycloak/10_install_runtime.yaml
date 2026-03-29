@@ -1,0 +1,38 @@
+---
+# Install only the container runtime and local directories.
+# PostgreSQL and Keycloak themselves are deployed by 20_deploy_stack.yaml.
+- name: Install container runtime for Keycloak
+  hosts: oidc
+  become: true
+  gather_facts: false
+
+  vars_files:
+    - ../../vars/keycloak.yaml
+    - ../../vars/keycloak-secrets.yaml
+
+  tasks:
+    - name: Install Docker and Compose plugin
+      apt:
+        name:
+          - docker.io
+          - docker-compose-plugin
+        state: present
+        update_cache: true
+
+    - name: Ensure Docker service is enabled and started
+      systemd:
+        name: docker
+        enabled: true
+        state: started
+
+    - name: Ensure Keycloak project directories exist
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0750"
+      loop:
+        - "{{ keycloak_project_dir }}"
+        - "{{ keycloak_postgres_data_dir }}"
+        - "{{ keycloak_data_dir }}"

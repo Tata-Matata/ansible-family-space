@@ -1,0 +1,165 @@
+---
+- name: Configure Keycloak Vault OIDC client
+  hosts: oidc
+  become: true
+  gather_facts: false
+
+  vars_files:
+    - ../../vars/keycloak.yaml
+    - ../../vars/keycloak-secrets.yaml
+
+  tasks:
+    - name: Authenticate Keycloak admin CLI
+      command:
+        argv:
+          - docker
+          - exec
+          - "{{ keycloak_container_name }}"
+          - /opt/keycloak/bin/kcadm.sh
+          - config
+          - credentials
+          - --server
+          - http://127.0.0.1:8080
+          - --realm
+          - master
+          - --user
+          - "{{ keycloak_admin_user }}"
+          - --password
+          - "{{ keycloak_admin_password }}"
+      changed_when: false
+      no_log: true
+
+    - name: Query Keycloak Vault client
+      command:
+        argv:
+          - docker
+          - exec
+          - "{{ keycloak_container_name }}"
+          - /opt/keycloak/bin/kcadm.sh
+          - get
+          - clients
+          - -r
+          - "{{ keycloak_realm_name }}"
+          - -q
+          - clientId={{ keycloak_vault_client_id }}
+      register: keycloak_vault_client_query
+      changed_when: false
+      no_log: true
+
+    - name: Parse Keycloak Vault client query
+      set_fact:
+        keycloak_vault_client_matches: "{{ keycloak_vault_client_query.stdout | from_json }}"
+      no_log: true
+
+    - name: Create Keycloak Vault OIDC client
+      command:
+        argv:
+          - docker
+          - exec
+          - "{{ keycloak_container_name }}"
+          - /opt/keycloak/bin/kcadm.sh
+          - create
+          - clients
+          - -r
+          - "{{ keycloak_realm_name }}"
+          - -s
+          - clientId={{ keycloak_vault_client_id }}
+          - -s
+          - enabled=true
+          - -s
+          - protocol=openid-connect
+          - -s
+          - publicClient=false
+          - -s
+          - secret={{ keycloak_vault_client_secret }}
+          - -s
+          - 'redirectUris={{ keycloak_vault_redirect_uris | to_json }}'
+          - -s
+          - 'webOrigins={{ keycloak_vault_web_origins | to_json }}'
+          - -s
+          - standardFlowEnabled=true
+      when: keycloak_vault_client_matches | length == 0
+      changed_when: true
+      no_log: true
+
+    - name: Set Keycloak Vault client id fact
+      set_fact:
+        keycloak_vault_client_uuid: "{{ (keycloak_vault_client_matches | first).id if (keycloak_vault_client_matches | length > 0) else '' }}"
+      no_log: true
+
+    - name: Refresh Keycloak Vault client query if client was just created
+      command:
+        argv:
+          - docker
+          - exec
+          - "{{ keycloak_container_name }}"
+          - /opt/keycloak/bin/kcadm.sh
+          - get
+          - clients
+          - -r
+          - "{{ keycloak_realm_name }}"
+          - -q
+          - clientId={{ keycloak_vault_client_id }}
+      register: keycloak_vault_client_query_refresh
+      changed_when: false
+      when: keycloak_vault_client_uuid == ''
+      no_log: true
+
+    - name: Update Keycloak Vault client id fact after create
+      set_fact:
+        keycloak_vault_client_uuid: "{{ (keycloak_vault_client_query_refresh.stdout | from_json | first).id }}"
+      when: keycloak_vault_client_uuid == ''
+      no_log: true
+
+    - name: Query existing Keycloak groups mapper
+      command:
+        argv:
+          - docker
+          - exec
+          - "{{ keycloak_container_name }}"
+          - /opt/keycloak/bin/kcadm.sh
+          - get
+          - clients/{{ keycloak_vault_client_uuid }}/protocol-mappers/models
+          - -r
+          - "{{ keycloak_realm_name }}"
+      register: keycloak_protocol_mappers_query
+      changed_when: false
+      no_log: true
+
+    - name: Parse Keycloak protocol mappers
+      set_fact:
+        keycloak_protocol_mappers: "{{ keycloak_protocol_mappers_query.stdout | from_json }}"
+      no_log: true
+
+    - name: Create Keycloak groups mapper for Vault
+      command:
+        argv:
+          - docker
+          - exec
+          - "{{ keycloak_container_name }}"
+          - /opt/keycloak/bin/kcadm.sh
+          - create
+          - clients/{{ keycloak_vault_client_uuid }}/protocol-mappers/models
+          - -r
+          - "{{ keycloak_realm_name }}"
+          - -s
+          - name={{ keycloak_vault_groups_claim_name }}
+          - -s
+          - protocol=openid-connect
+          - -s
+          - protocolMapper=oidc-group-membership-mapper
+          - -s
+          - 'config."full.path"=false'
+          - -s
+          - 'config."id.token.claim"=true'
+          - -s
+          - 'config."access.token.claim"=true'
+          - -s
+          - 'config."userinfo.token.claim"=true'
+          - -s
+          - 'config."claim.name"={{ keycloak_vault_groups_claim_name }}'
+          - -s
+          - 'config."jsonType.label"=String'
+      when: (keycloak_protocol_mappers | selectattr('name', 'equalto', keycloak_vault_groups_claim_name) | list | length) == 0
+      changed_when: true
+      no_log: true

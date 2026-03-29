@@ -1,0 +1,26 @@
+keycloak_scheme: http
+keycloak_port: 8080
+keycloak_base_url: "{{ keycloak_scheme }}://{{ oidc_service_name }}:{{ keycloak_port }}"
+keycloak_realm_name: infra
+keycloak_admin_group_name: infra-admins
+keycloak_project_dir: /opt/keycloak
+keycloak_postgres_data_dir: "{{ keycloak_project_dir }}/postgres-data"
+keycloak_data_dir: "{{ keycloak_project_dir }}/keycloak-data"
+keycloak_compose_file: "{{ keycloak_project_dir }}/compose.yaml"
+keycloak_env_file: "{{ keycloak_project_dir }}/keycloak.env"
+keycloak_db_env_file: "{{ keycloak_project_dir }}/postgres.env"
+keycloak_container_name: keycloak
+keycloak_postgres_container_name: keycloak-postgres
+keycloak_image: quay.io/keycloak/keycloak:26.1
+keycloak_postgres_image: postgres:16-alpine
+keycloak_postgres_db: keycloak
+keycloak_postgres_user: keycloak
+keycloak_admin_user: admin
+keycloak_healthcheck_url: "http://127.0.0.1:{{ keycloak_port }}/health/ready"
+keycloak_vault_client_id: vault
+keycloak_vault_redirect_uris:
+  - http://localhost:8250/oidc/callback
+  - http://127.0.0.1:8250/oidc/callback
+keycloak_vault_web_origins:
+  - "+"
+keycloak_vault_groups_claim_name: groups
