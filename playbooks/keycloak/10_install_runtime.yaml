@@ -37,14 +37,28 @@
         enabled: true
         state: started
 
-    - name: Ensure Keycloak project directories exist
+    - name: Ensure Keycloak project directory exists
       file:
-        path: "{{ item }}"
+        path: "{{ keycloak_project_dir }}"
         state: directory
         owner: root
         group: root
-        mode: "0750"
-      loop:
-        - "{{ keycloak_project_dir }}"
-        - "{{ keycloak_postgres_data_dir }}"
-        - "{{ keycloak_data_dir }}"
+        mode: "0755"
+
+    - name: Ensure PostgreSQL data directory exists with container ownership
+      file:
+        path: "{{ keycloak_postgres_data_dir }}"
+        state: directory
+        owner: "{{ keycloak_postgres_data_dir_owner }}"
+        group: "{{ keycloak_postgres_data_dir_group }}"
+        mode: "{{ keycloak_postgres_data_dir_mode }}"
+        recurse: true
+
+    - name: Ensure Keycloak data directory exists with container ownership
+      file:
+        path: "{{ keycloak_data_dir }}"
+        state: directory
+        owner: "{{ keycloak_data_dir_owner }}"
+        group: "{{ keycloak_data_dir_group }}"
+        mode: "{{ keycloak_data_dir_mode }}"
+        recurse: true
