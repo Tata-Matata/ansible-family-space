@@ -41,7 +41,7 @@
       register: keyscan
       changed_when: false
       failed_when: false
-      loop: "{{ groups['consul'] + groups['vault'] }}"
+      loop: "{{ groups['consul'] + groups['vault'] + groups['oidc'] }}"
     - name: Add SSH host keys to known_hosts
       no_log: true
       known_hosts:
