@@ -18,6 +18,13 @@ dns_entries:
     names:
     - "{{ consul_service_name }}"
     - "{{ groups['consul_servers'][0] }}"
+  
+  oidc:
+    # we are not going to have more than one OIDC server
+    host: "{{ groups['oidc'][0] }}"
+    names:
+    - "{{ oidc_service_name }}"
+    - "{{ groups['oidc'][0] }}"
     
 
 
@@ -106,3 +113,6 @@ vault_cluster_addr: "{{ vault_api_scheme }}://{{ vault_internal_address }}:{{ va
 vault_prefix_in_consul_store: "vault/"
 
 
+### OIDC server
+
+oidc_service_name: "keycloak.service.internal"
