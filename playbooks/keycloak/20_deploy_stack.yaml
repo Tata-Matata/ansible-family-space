@@ -47,7 +47,17 @@
         group: root
         mode: "0640"
 
-    - name: Start Keycloak stack
+    - name: Check whether docker compose v2 is available
+      command:
+        argv:
+          - docker
+          - compose
+          - version
+      register: keycloak_docker_compose_v2
+      changed_when: false
+      failed_when: false
+
+    - name: Start Keycloak stack with docker compose v2
       command:
         argv:
           - docker
@@ -57,3 +67,15 @@
           - up
           - -d
       changed_when: true
+      when: keycloak_docker_compose_v2.rc == 0
+
+    - name: Start Keycloak stack with legacy docker-compose
+      command:
+        argv:
+          - docker-compose
+          - -f
+          - "{{ keycloak_compose_file }}"
+          - up
+          - -d
+      changed_when: true
+      when: keycloak_docker_compose_v2.rc != 0

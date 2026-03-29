@@ -11,13 +11,25 @@
     - ../../vars/keycloak-secrets.yaml
 
   tasks:
-    - name: Install Docker and Compose plugin
+    - name: Install Docker engine
       apt:
         name:
           - docker.io
-          - docker-compose-plugin
         state: present
         update_cache: true
+
+    - name: Install Docker Compose v2 package when available
+      apt:
+        name: docker-compose-v2
+        state: present
+      register: keycloak_compose_v2_install
+      failed_when: false
+
+    - name: Install legacy Docker Compose package when v2 package is unavailable
+      apt:
+        name: docker-compose
+        state: present
+      when: keycloak_compose_v2_install is failed
 
     - name: Ensure Docker service is enabled and started
       systemd:
