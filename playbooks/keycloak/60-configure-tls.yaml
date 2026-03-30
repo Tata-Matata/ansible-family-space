@@ -62,7 +62,7 @@
     - name: Generate Keycloak TLS private key
       community.crypto.openssl_privatekey:
         path: "{{ keycloak_bastion_tmp_tls_dir }}/{{ groups['oidc'][0] }}/{{ keycloak_server_key_file }}"
-        type: EC
+        type: ECC
         curve: prime256v1
         owner: ansible
         group: ansible
