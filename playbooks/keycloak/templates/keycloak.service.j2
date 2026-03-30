@@ -8,7 +8,7 @@ User={{ keycloak_user }}
 Group={{ keycloak_group }}
 EnvironmentFile={{ keycloak_env_file }}
 WorkingDirectory={{ keycloak_home }}
-ExecStart={{ keycloak_home }}/bin/kc.sh start --optimized {% if keycloak_tls_enabled %}--http-enabled=true --http-host=127.0.0.1 --http-port={{ keycloak_http_port }} --https-port={{ keycloak_https_port }} --https-certificate-file={{ keycloak_server_cert_path }} --https-certificate-key-file={{ keycloak_server_key_path }} --http-management-scheme=http --http-management-port={{ keycloak_management_port }}{% else %}--http-enabled=true --http-port={{ keycloak_http_port }}{% endif %} --hostname={{ oidc_service_name }} --proxy-headers=xforwarded
+ExecStart={{ keycloak_home }}/bin/kc.sh start --optimized {% if keycloak_tls_enabled %}--http-enabled=true --http-host=127.0.0.1 --http-port={{ keycloak_http_port }} --https-port={{ keycloak_https_port }} --https-certificate-file={{ keycloak_server_cert_path }} --https-certificate-key-file={{ keycloak_server_key_path }} --http-management-port={{ keycloak_management_port }}{% else %}--http-enabled=true --http-port={{ keycloak_http_port }}{% endif %} --hostname={{ oidc_service_name }} --proxy-headers=xforwarded
 Restart=on-failure
 RestartSec=5
 LimitNOFILE=1024000
