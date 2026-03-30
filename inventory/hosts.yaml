@@ -27,6 +27,11 @@ bastion:
       ansible_connection: local
       bastion_private_ip: 10.50.1.5
 
+#ensure single canonical bastion host in case of future HA setups and accidental multiple assignments of bastion_primary
+bastion_primary:
+  hosts:
+    bastion-1: {}
+
 k8s_controlplane:
   hosts:
     k8s_controlplane-1:
