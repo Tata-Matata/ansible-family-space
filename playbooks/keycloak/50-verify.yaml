@@ -21,7 +21,7 @@
         method: GET
         status_code: 200
         ca_path: "{{ keycloak_ca_cert_path if keycloak_tls_enabled else omit }}"
-        validate_certs: {{ keycloak_tls_enabled }}
+        validate_certs: "{{ keycloak_tls_enabled }}"
       register: keycloak_discovery
 
     - name: Authenticate Keycloak admin CLI
