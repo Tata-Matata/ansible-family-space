@@ -1,6 +1,6 @@
 ---
-# Render and start the PostgreSQL + Keycloak containers on the OIDC VM.
-- name: Render and deploy Keycloak container stack
+# Install and start PostgreSQL + Keycloak as native services on the OIDC VM.
+- name: Install and configure Keycloak services
   hosts: oidc
   become: true
   gather_facts: false
@@ -10,72 +10,150 @@
     - ../../vars/keycloak-secrets.yaml
 
   tasks:
-    - name: Write PostgreSQL environment file
-      copy:
-        dest: "{{ keycloak_db_env_file }}"
-        owner: root
-        group: root
-        mode: "0600"
-        content: |
-          POSTGRES_DB={{ keycloak_postgres_db }}
-          POSTGRES_USER={{ keycloak_postgres_user }}
-          POSTGRES_PASSWORD={{ keycloak_postgres_password }}
+    - name: Ensure PostgreSQL service is enabled and started
+      systemd:
+        name: postgresql
+        enabled: true
+        state: started
+
+    - name: Check Keycloak PostgreSQL role
+      become_user: postgres
+      command:
+        argv:
+          - psql
+          - -tAc
+          - "SELECT 1 FROM pg_roles WHERE rolname='{{ keycloak_postgres_user }}'"
+      register: keycloak_postgres_role_check
+      changed_when: false
+
+    - name: Create Keycloak PostgreSQL role
+      become_user: postgres
+      command:
+        argv:
+          - psql
+          - -c
+          - "CREATE ROLE \"{{ keycloak_postgres_user }}\" LOGIN PASSWORD '{{ keycloak_postgres_password | replace(\"'\", \"''\") }}'"
+      when: keycloak_postgres_role_check.stdout | trim != '1'
+      changed_when: true
       no_log: true
 
-    - name: Write Keycloak environment file
-      copy:
+    - name: Ensure Keycloak PostgreSQL role password is current
+      become_user: postgres
+      command:
+        argv:
+          - psql
+          - -c
+          - "ALTER ROLE \"{{ keycloak_postgres_user }}\" WITH LOGIN PASSWORD '{{ keycloak_postgres_password | replace(\"'\", \"''\") }}'"
+      changed_when: false
+      no_log: true
+
+    - name: Check Keycloak PostgreSQL database
+      become_user: postgres
+      command:
+        argv:
+          - psql
+          - -tAc
+          - "SELECT 1 FROM pg_database WHERE datname='{{ keycloak_postgres_db }}'"
+      register: keycloak_postgres_db_check
+      changed_when: false
+
+    - name: Create Keycloak PostgreSQL database
+      become_user: postgres
+      command:
+        argv:
+          - createdb
+          - -O
+          - "{{ keycloak_postgres_user }}"
+          - "{{ keycloak_postgres_db }}"
+      when: keycloak_postgres_db_check.stdout | trim != '1'
+      changed_when: true
+
+    - name: Download Keycloak release archive
+      get_url:
+        url: "{{ keycloak_archive_url }}"
+        dest: "{{ keycloak_archive_path }}"
+        mode: "0644"
+      register: keycloak_archive_download
+
+    - name: Extract Keycloak release archive
+      unarchive:
+        src: "{{ keycloak_archive_path }}"
+        dest: "{{ keycloak_install_root }}"
+        remote_src: true
+        creates: "{{ keycloak_install_dir }}"
+      register: keycloak_archive_unpack
+
+    - name: Ensure Keycloak installation ownership
+      file:
+        path: "{{ keycloak_install_dir }}"
+        state: directory
+        owner: "{{ keycloak_user }}"
+        group: "{{ keycloak_group }}"
+        recurse: true
+
+    - name: Ensure Keycloak current symlink points to installed version
+      file:
+        src: "{{ keycloak_install_dir }}"
+        dest: "{{ keycloak_home }}"
+        state: link
+        force: true
+      register: keycloak_home_link
+
+    - name: Render Keycloak environment file
+      template:
+        src: templates/keycloak.env.j2
         dest: "{{ keycloak_env_file }}"
         owner: root
-        group: root
-        mode: "0600"
-        content: |
-          KC_DB=postgres
-          KC_DB_URL=jdbc:postgresql://postgres:5432/{{ keycloak_postgres_db }}
-          KC_DB_USERNAME={{ keycloak_postgres_user }}
-          KC_DB_PASSWORD={{ keycloak_postgres_password }}
-          KC_BOOTSTRAP_ADMIN_USERNAME={{ keycloak_admin_user }}
-          KC_BOOTSTRAP_ADMIN_PASSWORD={{ keycloak_admin_password }}
-          KC_HEALTH_ENABLED=true
-          KC_METRICS_ENABLED=true
+        group: "{{ keycloak_group }}"
+        mode: "0640"
+      register: keycloak_env
       no_log: true
 
-    - name: Render Keycloak compose file
+    - name: Build optimized Keycloak distribution when binaries or config changed
+      become_user: "{{ keycloak_user }}"
+      shell: |
+        set -a
+        . "{{ keycloak_env_file }}"
+        set +a
+        "{{ keycloak_home }}/bin/kc.sh" build
+      args:
+        executable: /bin/bash
+      register: keycloak_build
+      changed_when: true
+      when: keycloak_archive_unpack.changed or keycloak_home_link.changed or keycloak_env.changed
+      no_log: true
+
+    - name: Render Keycloak systemd service
       template:
-        src: templates/keycloak-compose.yaml.j2
-        dest: "{{ keycloak_compose_file }}"
+        src: templates/keycloak.service.j2
+        dest: /etc/systemd/system/keycloak.service
         owner: root
         group: root
-        mode: "0640"
+        mode: "0644"
+      register: keycloak_service_unit
 
-    - name: Check whether docker compose v2 is available
-      command:
-        argv:
-          - docker
-          - compose
-          - version
-      register: keycloak_docker_compose_v2
-      changed_when: false
-      failed_when: false
+    - name: Reload systemd after Keycloak unit changes
+      systemd:
+        daemon_reload: true
+      when: keycloak_service_unit.changed
 
-    - name: Start Keycloak stack with docker compose v2
-      command:
-        argv:
-          - docker
-          - compose
-          - -f
-          - "{{ keycloak_compose_file }}"
-          - up
-          - -d
-      changed_when: true
-      when: keycloak_docker_compose_v2.rc == 0
+    - name: Ensure Keycloak service is enabled
+      systemd:
+        name: keycloak
+        enabled: true
 
-    - name: Start Keycloak stack with legacy docker-compose
-      command:
-        argv:
-          - docker-compose
-          - -f
-          - "{{ keycloak_compose_file }}"
-          - up
-          - -d
-      changed_when: true
-      when: keycloak_docker_compose_v2.rc != 0
+    - name: Set Keycloak restart requirement
+      set_fact:
+        keycloak_service_needs_restart: >-
+          {{
+            keycloak_archive_unpack.changed or
+            keycloak_home_link.changed or
+            keycloak_env.changed or
+            keycloak_service_unit.changed or
+            (keycloak_build is defined and keycloak_build.changed)
+          }}
+
+    - name: Ensure Keycloak service is running
+      systemd:
+        name: keycloak
+        state: "{{ 'restarted' if keycloak_service_needs_restart else 'started' }}"

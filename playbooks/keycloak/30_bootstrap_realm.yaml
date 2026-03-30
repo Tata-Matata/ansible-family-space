@@ -20,16 +20,14 @@
       until: keycloak_health.status == 200
 
     - name: Authenticate Keycloak admin CLI
+      become_user: "{{ keycloak_user }}"
       command:
         argv:
-          - docker
-          - exec
-          - "{{ keycloak_container_name }}"
-          - /opt/keycloak/bin/kcadm.sh
+          - "{{ keycloak_home }}/bin/kcadm.sh"
           - config
           - credentials
           - --server
-          - http://127.0.0.1:8080
+          - "{{ keycloak_admin_cli_server_url }}"
           - --realm
           - master
           - --user
@@ -40,12 +38,10 @@
       no_log: true
 
     - name: Check Keycloak realm
+      become_user: "{{ keycloak_user }}"
       command:
         argv:
-          - docker
-          - exec
-          - "{{ keycloak_container_name }}"
-          - /opt/keycloak/bin/kcadm.sh
+          - "{{ keycloak_home }}/bin/kcadm.sh"
           - get
           - realms/{{ keycloak_realm_name }}
       register: keycloak_realm_check
@@ -54,12 +50,10 @@
       no_log: true
 
     - name: Create Keycloak realm
+      become_user: "{{ keycloak_user }}"
       command:
         argv:
-          - docker
-          - exec
-          - "{{ keycloak_container_name }}"
-          - /opt/keycloak/bin/kcadm.sh
+          - "{{ keycloak_home }}/bin/kcadm.sh"
           - create
           - realms
           - -s
@@ -71,12 +65,10 @@
       no_log: true
 
     - name: Query Keycloak admin group
+      become_user: "{{ keycloak_user }}"
       command:
         argv:
-          - docker
-          - exec
-          - "{{ keycloak_container_name }}"
-          - /opt/keycloak/bin/kcadm.sh
+          - "{{ keycloak_home }}/bin/kcadm.sh"
           - get
           - groups
           - -r
@@ -93,12 +85,10 @@
       no_log: true
 
     - name: Create Keycloak admin group
+      become_user: "{{ keycloak_user }}"
       command:
         argv:
-          - docker
-          - exec
-          - "{{ keycloak_container_name }}"
-          - /opt/keycloak/bin/kcadm.sh
+          - "{{ keycloak_home }}/bin/kcadm.sh"
           - create
           - groups
           - -r

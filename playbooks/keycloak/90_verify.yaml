@@ -16,16 +16,14 @@
         status_code: 200
 
     - name: Authenticate Keycloak admin CLI
+      become_user: "{{ keycloak_user }}"
       command:
         argv:
-          - docker
-          - exec
-          - "{{ keycloak_container_name }}"
-          - /opt/keycloak/bin/kcadm.sh
+          - "{{ keycloak_home }}/bin/kcadm.sh"
           - config
           - credentials
           - --server
-          - http://127.0.0.1:8080
+          - "{{ keycloak_admin_cli_server_url }}"
           - --realm
           - master
           - --user
@@ -36,12 +34,10 @@
       no_log: true
 
     - name: Read Keycloak realm
+      become_user: "{{ keycloak_user }}"
       command:
         argv:
-          - docker
-          - exec
-          - "{{ keycloak_container_name }}"
-          - /opt/keycloak/bin/kcadm.sh
+          - "{{ keycloak_home }}/bin/kcadm.sh"
           - get
           - realms/{{ keycloak_realm_name }}
       register: keycloak_realm_read
@@ -49,12 +45,10 @@
       no_log: true
 
     - name: Read Keycloak Vault client
+      become_user: "{{ keycloak_user }}"
       command:
         argv:
-          - docker
-          - exec
-          - "{{ keycloak_container_name }}"
-          - /opt/keycloak/bin/kcadm.sh
+          - "{{ keycloak_home }}/bin/kcadm.sh"
           - get
           - clients
           - -r

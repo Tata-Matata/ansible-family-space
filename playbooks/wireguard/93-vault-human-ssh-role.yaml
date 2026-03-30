@@ -1,0 +1,143 @@
+---
+- name: Configure Vault human SSH signing policy and roles
+  hosts: "{{ groups['vault'][0] }}"
+  become: true
+
+  vars:
+    vault_cli_env:
+      VAULT_ADDR: "{{ vault_api_addr }}"
+      VAULT_CLIENT_CERT: "{{ vault_server_cert_path }}"
+      VAULT_CLIENT_KEY: "{{ vault_server_key_path }}"
+      VAULT_CACERT: "{{ vault_ca_cert_path }}"
+    vault_cli_auth_env: "{{ vault_cli_env | combine({'VAULT_TOKEN': vault_root_token}) }}"
+
+  vars_files:
+    - ../../vars/vault-init-unseal-config.yaml
+    - ../../vars/bootstrap-tls-vault-consul.yaml
+    - ../../vars/vault-config-ssh.yaml
+    - ../../vars/vault-human-auth.yaml
+
+  environment: "{{ vault_cli_env }}"
+
+  tasks:
+    - name: Load Vault init data and root token
+      import_tasks: ../../tasks/vault/read-init-token.yaml
+
+    - name: Check Vault is initialized and unsealed
+      import_tasks: ../../tasks/vault/assert-initialized-unsealed.yaml
+
+    - name: Check enabled Vault secrets engines
+      command:
+        argv:
+          - vault
+          - secrets
+          - list
+          - -format=json
+          - -address={{ vault_api_addr }}
+      register: vault_secrets_list_raw
+      changed_when: false
+      environment: "{{ vault_cli_auth_env }}"
+      no_log: true
+
+    - name: Parse enabled Vault secrets engines
+      set_fact:
+        vault_secrets_list: "{{ vault_secrets_list_raw.stdout | from_json }}"
+      no_log: true
+
+    - name: Fail if Vault SSH secrets engine is missing
+      assert:
+        that:
+          - (vault_ssh_secrets_mount_path ~ '/') in vault_secrets_list
+        fail_msg: Run 70-vault-generate-ssh-ca.yaml before configuring the human SSH signing role.
+
+    - name: Write Vault human SSH policy file
+      copy:
+        dest: "{{ vault_human_policy_file }}"
+        owner: root
+        group: root
+        mode: "0600"
+        content: "{{ vault_human_policy_hcl }}"
+
+    - name: Create or update Vault human SSH policy
+      command:
+        argv:
+          - vault
+          - policy
+          - write
+          - -address={{ vault_api_addr }}
+          - "{{ vault_human_policy_name }}"
+          - "{{ vault_human_policy_file }}"
+      environment: "{{ vault_cli_auth_env }}"
+      changed_when: true
+      no_log: true
+
+    - name: Create or update Vault human SSH signing role
+      command:
+        argv:
+          - vault
+          - write
+          - -address={{ vault_api_addr }}
+          - "{{ vault_ssh_secrets_mount_path }}/roles/{{ vault_human_ssh_role_name }}"
+          - key_type=ca
+          - allowed_users={{ vault_human_ssh_allowed_users }}
+          - default_user={{ vault_human_ssh_default_user }}
+          - ttl={{ vault_human_ssh_ttl }}
+          - max_ttl={{ vault_human_ssh_max_ttl }}
+      environment: "{{ vault_cli_auth_env }}"
+      changed_when: true
+      no_log: true
+
+    - name: Build Vault human OIDC role payload
+      set_fact:
+        vault_human_oidc_role_payload: >-
+          {{
+            {
+              'role_type': 'oidc',
+              'user_claim': vault_human_oidc_user_claim,
+              'groups_claim': vault_human_oidc_groups_claim,
+              'oidc_scopes': vault_human_oidc_scopes,
+              'allowed_redirect_uris': vault_human_oidc_allowed_redirect_uris,
+              'bound_audiences': [vault_human_oidc_client_id],
+              'token_policies': [vault_human_policy_name],
+              'token_ttl': vault_human_token_ttl,
+              'token_max_ttl': vault_human_token_max_ttl
+            }
+            | combine(
+                {'bound_claims': {vault_human_oidc_groups_claim: vault_human_oidc_required_groups}}
+                if (vault_human_oidc_required_groups | length > 0)
+                else {}
+              )
+          }}
+      no_log: true
+
+    - name: Create temporary file for Vault human OIDC role payload
+      tempfile:
+        state: file
+        suffix: .json
+      register: vault_human_oidc_role_payload_file
+
+    - name: Write Vault human OIDC role payload
+      copy:
+        dest: "{{ vault_human_oidc_role_payload_file.path }}"
+        owner: root
+        group: root
+        mode: "0600"
+        content: "{{ vault_human_oidc_role_payload | to_nice_json }}"
+      no_log: true
+
+    - name: Create or update Vault human OIDC role
+      command:
+        argv:
+          - vault
+          - write
+          - -address={{ vault_api_addr }}
+          - auth/{{ vault_human_auth_mount_path }}/role/{{ vault_human_oidc_role_name }}
+          - "@{{ vault_human_oidc_role_payload_file.path }}"
+      environment: "{{ vault_cli_auth_env }}"
+      changed_when: true
+      no_log: true
+
+    - name: Remove temporary Vault human OIDC role payload
+      file:
+        path: "{{ vault_human_oidc_role_payload_file.path }}"
+        state: absent

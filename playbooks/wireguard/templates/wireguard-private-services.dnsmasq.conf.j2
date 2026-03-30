@@ -1,0 +1,10 @@
+bind-interfaces
+listen-address={{ wireguard_dns_listen_ip }}
+listen-address=127.0.0.1
+{% for server in wireguard_dns_upstream_servers %}
+server={{ server }}
+{% endfor %}
+
+{% for record in wireguard_dns_records %}
+host-record={{ record.name }},{{ record.ip }}
+{% endfor %}

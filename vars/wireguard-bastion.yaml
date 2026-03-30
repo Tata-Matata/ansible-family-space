@@ -1,0 +1,18 @@
+wireguard_interface: wg0
+wireguard_port: 51820
+wireguard_server_ip: 10.60.0.1
+wireguard_server_cidr: 10.60.0.1/24
+wireguard_network_cidr: 10.60.0.0/24
+wireguard_config_path: "/etc/wireguard/{{ wireguard_interface }}.conf"
+wireguard_private_key_path: "/etc/wireguard/{{ wireguard_interface }}.key"
+wireguard_public_key_path: "/etc/wireguard/{{ wireguard_interface }}.pub"
+wireguard_public_iface: eth0
+wireguard_private_iface: enp7s0
+wireguard_private_network_cidrs:
+  - 10.50.1.0/24
+wireguard_dns_upstream_servers:
+  - 1.1.1.1
+  - 8.8.8.8
+wireguard_dns_listen_ip: "{{ wireguard_server_ip }}"
+wireguard_dns_config_path: /etc/dnsmasq.d/wireguard-private-services.conf
+wireguard_peers: []

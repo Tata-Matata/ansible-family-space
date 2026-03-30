@@ -9,7 +9,7 @@
       VAULT_CLIENT_CERT: "{{ vault_server_cert_path }}"
       VAULT_CLIENT_KEY: "{{ vault_server_key_path }}"
       VAULT_CACERT: "{{ vault_ca_cert_path }}"
-    vault_cli_auth_env: "{{ vault_cli_env | combine({'VAULT_TOKEN': vault_init_data.root_token}) }}"
+    vault_cli_auth_env: "{{ vault_cli_env | combine({'VAULT_TOKEN': vault_root_token}) }}"
 
   vars_files:
     - ../vars/vault-init-unseal-config.yaml
@@ -19,49 +19,11 @@
   environment: "{{ vault_cli_env }}"
 
   tasks:
-    - name: Ensure Vault init file exists
-      stat:
-        path: "{{ vault_init_file }}"
-      register: vault_init_file_stat
+    - name: Load Vault init data and root token
+      import_tasks: ../tasks/vault/read-init-token.yaml
 
-    - name: Fail if Vault init file is missing
-      fail:
-        msg: "Vault init file is missing at {{ vault_init_file }}. Initialize Vault first."
-      when: not vault_init_file_stat.stat.exists
-
-    - name: Read Vault init file
-      slurp:
-        path: "{{ vault_init_file }}"
-      register: vault_init_file_raw
-
-    - name: Parse Vault init file
-      set_fact:
-        vault_init_data: "{{ vault_init_file_raw.content | b64decode | from_json }}"
-      no_log: true
-
-    - name: Check Vault status
-      command:
-        argv:
-          - vault
-          - status
-          - -format=json
-          - -address={{ vault_api_addr }}
-      register: vault_status_raw
-      changed_when: false
-      failed_when: >
-        vault_status_raw.rc != 0 and
-        (vault_status_raw.stdout is not defined or vault_status_raw.stdout == "")
-
-    - name: Parse Vault status
-      set_fact:
-        vault_status: "{{ vault_status_raw.stdout | from_json }}"
-
-    - name: Assert Vault is initialized and unsealed
-      assert:
-        that:
-          - vault_status.initialized
-          - not vault_status.sealed
-        fail_msg: "Expected Vault to be initialized and unsealed before configuring SSH CA, got initialized={{ vault_status.initialized }} sealed={{ vault_status.sealed }}."
+    - name: Check Vault is initialized and unsealed
+      import_tasks: ../tasks/vault/assert-initialized-unsealed.yaml
 
     - name: Check enabled Vault secrets engines
       command:

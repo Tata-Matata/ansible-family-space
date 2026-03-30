@@ -3,16 +3,23 @@ keycloak_port: 8080
 keycloak_base_url: "{{ keycloak_scheme }}://{{ oidc_service_name }}:{{ keycloak_port }}"
 keycloak_realm_name: infra
 keycloak_admin_group_name: infra-admins
-keycloak_project_dir: /opt/keycloak
-keycloak_postgres_data_dir: "{{ keycloak_project_dir }}/postgres-data"
-keycloak_data_dir: "{{ keycloak_project_dir }}/keycloak-data"
-keycloak_compose_file: "{{ keycloak_project_dir }}/compose.yaml"
-keycloak_env_file: "{{ keycloak_project_dir }}/keycloak.env"
-keycloak_db_env_file: "{{ keycloak_project_dir }}/postgres.env"
-keycloak_container_name: keycloak
-keycloak_postgres_container_name: keycloak-postgres
-keycloak_image: quay.io/keycloak/keycloak:26.1
-keycloak_postgres_image: postgres:16-alpine
+keycloak_version: 26.1.0
+keycloak_java_package: openjdk-21-jre-headless
+keycloak_archive_url: "https://github.com/keycloak/keycloak/releases/download/{{ keycloak_version }}/keycloak-{{ keycloak_version }}.tar.gz"
+keycloak_archive_path: "/tmp/keycloak-{{ keycloak_version }}.tar.gz"
+keycloak_install_root: /opt/keycloak
+keycloak_install_dir: "{{ keycloak_install_root }}/keycloak-{{ keycloak_version }}"
+keycloak_home: "{{ keycloak_install_root }}/current"
+keycloak_config_dir: /etc/keycloak
+keycloak_env_file: "{{ keycloak_config_dir }}/keycloak.env"
+keycloak_data_dir: /var/lib/keycloak
+keycloak_log_dir: /var/log/keycloak
+keycloak_user: keycloak
+keycloak_group: keycloak
+keycloak_db_host: 127.0.0.1
+keycloak_db_port: 5432
+keycloak_db_url: "jdbc:postgresql://{{ keycloak_db_host }}:{{ keycloak_db_port }}/{{ keycloak_postgres_db }}"
+keycloak_admin_cli_server_url: "http://127.0.0.1:{{ keycloak_port }}"
 keycloak_postgres_db: keycloak
 keycloak_postgres_user: keycloak
 keycloak_admin_user: admin

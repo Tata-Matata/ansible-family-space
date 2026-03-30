@@ -1,0 +1,122 @@
+---
+- name: Verify Vault human auth and SSH signing configuration
+  hosts: "{{ groups['vault'][0] }}"
+  become: true
+
+  vars:
+    vault_cli_env:
+      VAULT_ADDR: "{{ vault_api_addr }}"
+      VAULT_CLIENT_CERT: "{{ vault_server_cert_path }}"
+      VAULT_CLIENT_KEY: "{{ vault_server_key_path }}"
+      VAULT_CACERT: "{{ vault_ca_cert_path }}"
+    vault_cli_auth_env: "{{ vault_cli_env | combine({'VAULT_TOKEN': vault_root_token}) }}"
+
+  vars_files:
+    - ../../vars/vault-init-unseal-config.yaml
+    - ../../vars/bootstrap-tls-vault-consul.yaml
+    - ../../vars/vault-config-ssh.yaml
+    - ../../vars/vault-human-auth.yaml
+
+  environment: "{{ vault_cli_env }}"
+
+  tasks:
+    - name: Load Vault init data and root token
+      import_tasks: ../../tasks/vault/read-init-token.yaml
+
+    - name: Check Vault is initialized and unsealed
+      import_tasks: ../../tasks/vault/assert-initialized-unsealed.yaml
+
+    - name: Read configured Vault auth methods
+      command:
+        argv:
+          - vault
+          - auth
+          - list
+          - -format=json
+          - -address={{ vault_api_addr }}
+      register: vault_auth_methods_raw
+      changed_when: false
+      environment: "{{ vault_cli_auth_env }}"
+      no_log: true
+
+    - name: Parse configured Vault auth methods
+      set_fact:
+        vault_auth_methods: "{{ vault_auth_methods_raw.stdout | from_json }}"
+      no_log: true
+
+    - name: Assert Vault human OIDC auth mount exists
+      assert:
+        that:
+          - (vault_human_auth_mount_path ~ '/') in vault_auth_methods
+        fail_msg: Run wireguard/92-vault-human-auth.yaml before verifying the human auth flow.
+
+    - name: Read Vault human OIDC role
+      command:
+        argv:
+          - vault
+          - read
+          - -format=json
+          - -address={{ vault_api_addr }}
+          - auth/{{ vault_human_auth_mount_path }}/role/{{ vault_human_oidc_role_name }}
+      register: vault_human_oidc_role_raw
+      changed_when: false
+      environment: "{{ vault_cli_auth_env }}"
+      no_log: true
+
+    - name: Read Vault human SSH signing role
+      command:
+        argv:
+          - vault
+          - read
+          - -format=json
+          - -address={{ vault_api_addr }}
+          - {{ vault_ssh_secrets_mount_path }}/roles/{{ vault_human_ssh_role_name }}
+      register: vault_human_ssh_role_raw
+      changed_when: false
+      environment: "{{ vault_cli_auth_env }}"
+      no_log: true
+
+    - name: Read Vault human SSH policy
+      command:
+        argv:
+          - vault
+          - policy
+          - read
+          - -address={{ vault_api_addr }}
+          - {{ vault_human_policy_name }}
+      register: vault_human_policy_raw
+      changed_when: false
+      environment: "{{ vault_cli_auth_env }}"
+      no_log: true
+
+    - name: Show manual desktop verification steps
+      debug:
+        msg:
+          - "Connect your desktop to WireGuard and ensure {{ vault_service_name }} resolves over the VPN."
+          - "Login from the desktop with: vault login -method=oidc -path={{ vault_human_auth_mount_path }} role={{ vault_human_oidc_role_name }}"
+          - "Generate a local SSH key pair on the desktop if needed."
+          - "Sign the public key with: vault write -field=signed_key {{ vault_ssh_secrets_mount_path }}/sign/{{ vault_human_ssh_role_name }} public_key=@$HOME/.ssh/id_ed25519.pub > $HOME/.ssh/id_ed25519-cert.pub"
+
+- name: Verify trusted user CA configuration on internal hosts
+  hosts: vault:consul:bastion
+  become: true
+  gather_facts: false
+
+  vars_files:
+    - ../../vars/vault-config-ssh.yaml
+
+  tasks:
+    - name: Ensure trusted user CA public key file exists
+      stat:
+        path: "{{ vault_ssh_trusted_user_ca_keys_path }}"
+      register: trusted_user_ca_file_stat
+
+    - name: Fail if trusted user CA public key file is missing
+      assert:
+        that:
+          - trusted_user_ca_file_stat.stat.exists
+        fail_msg: Run 71-distribute-vault-ca.yaml before verifying human SSH certificate login.
+
+    - name: Ensure sshd_config trusts the Vault SSH user CA
+      command: grep -q '^TrustedUserCAKeys {{ vault_ssh_trusted_user_ca_keys_path | regex_escape }}$' {{ vault_ssh_sshd_config_path }}
+      changed_when: false

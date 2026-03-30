@@ -10,16 +10,14 @@
 
   tasks:
     - name: Authenticate Keycloak admin CLI
+      become_user: "{{ keycloak_user }}"
       command:
         argv:
-          - docker
-          - exec
-          - "{{ keycloak_container_name }}"
-          - /opt/keycloak/bin/kcadm.sh
+          - "{{ keycloak_home }}/bin/kcadm.sh"
           - config
           - credentials
           - --server
-          - http://127.0.0.1:8080
+          - "{{ keycloak_admin_cli_server_url }}"
           - --realm
           - master
           - --user
@@ -30,12 +28,10 @@
       no_log: true
 
     - name: Query Keycloak Vault client
+      become_user: "{{ keycloak_user }}"
       command:
         argv:
-          - docker
-          - exec
-          - "{{ keycloak_container_name }}"
-          - /opt/keycloak/bin/kcadm.sh
+          - "{{ keycloak_home }}/bin/kcadm.sh"
           - get
           - clients
           - -r
@@ -52,12 +48,10 @@
       no_log: true
 
     - name: Create Keycloak Vault OIDC client
+      become_user: "{{ keycloak_user }}"
       command:
         argv:
-          - docker
-          - exec
-          - "{{ keycloak_container_name }}"
-          - /opt/keycloak/bin/kcadm.sh
+          - "{{ keycloak_home }}/bin/kcadm.sh"
           - create
           - clients
           - -r
@@ -88,12 +82,10 @@
       no_log: true
 
     - name: Refresh Keycloak Vault client query if client was just created
+      become_user: "{{ keycloak_user }}"
       command:
         argv:
-          - docker
-          - exec
-          - "{{ keycloak_container_name }}"
-          - /opt/keycloak/bin/kcadm.sh
+          - "{{ keycloak_home }}/bin/kcadm.sh"
           - get
           - clients
           - -r
@@ -112,12 +104,10 @@
       no_log: true
 
     - name: Query existing Keycloak groups mapper
+      become_user: "{{ keycloak_user }}"
       command:
         argv:
-          - docker
-          - exec
-          - "{{ keycloak_container_name }}"
-          - /opt/keycloak/bin/kcadm.sh
+          - "{{ keycloak_home }}/bin/kcadm.sh"
           - get
           - clients/{{ keycloak_vault_client_uuid }}/protocol-mappers/models
           - -r
@@ -132,12 +122,10 @@
       no_log: true
 
     - name: Create Keycloak groups mapper for Vault
+      become_user: "{{ keycloak_user }}"
       command:
         argv:
-          - docker
-          - exec
-          - "{{ keycloak_container_name }}"
-          - /opt/keycloak/bin/kcadm.sh
+          - "{{ keycloak_home }}/bin/kcadm.sh"
           - create
           - clients/{{ keycloak_vault_client_uuid }}/protocol-mappers/models
           - -r

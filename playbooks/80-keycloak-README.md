@@ -1,6 +1,6 @@
 # 80-keycloak
 
-This playbook stream installs and bootstraps a private Keycloak instance on the `oidc` VM using containerized Keycloak plus PostgreSQL.
+This playbook stream installs and bootstraps a private Keycloak instance on the `oidc` VM using the upstream Keycloak tarball, OpenJDK 21, a local PostgreSQL service, and a native systemd unit.
 
 ## Files
 
@@ -11,10 +11,10 @@ This playbook stream installs and bootstraps a private Keycloak instance on the 
   Validates required inventory and variables before installation.
 
 - `playbooks/keycloak/10_install_runtime.yaml`
-  Installs Docker and the Compose plugin, and creates local directories.
+  Installs OpenJDK, PostgreSQL, the Keycloak service user, and local directories.
 
 - `playbooks/keycloak/20_deploy_stack.yaml`
-  Renders and starts the PostgreSQL + Keycloak container stack.
+  Downloads Keycloak, configures PostgreSQL, renders the Keycloak environment and systemd unit, and starts the services.
 
 - `playbooks/keycloak/30_bootstrap_realm.yaml`
   Creates the Keycloak realm and the initial admin group.
@@ -71,6 +71,7 @@ ansible-playbook playbooks/80-keycloak.yaml --ask-vault-pass
 
 - The `oidc` VM already exists in inventory and is reachable by Ansible.
 - Keycloak is private-only and intended to be reached over the private network or VPN.
+- The target VM provides the `{{ keycloak_java_package | default('openjdk-21-jre-headless') }}` package in its apt repositories.
 - The initial deployment uses internal HTTP on port `8080`.
 - Vault OIDC integration will later consume the Keycloak discovery URL printed by the verify step.
 

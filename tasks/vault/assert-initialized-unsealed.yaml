@@ -1,0 +1,23 @@
+- name: Check Vault status
+  command:
+    argv:
+      - vault
+      - status
+      - -format=json
+      - -address={{ vault_api_addr }}
+  register: vault_status_raw
+  changed_when: false
+  failed_when: >
+    vault_status_raw.rc != 0 and
+    (vault_status_raw.stdout is not defined or vault_status_raw.stdout == "")
+
+- name: Parse Vault status
+  set_fact:
+    vault_status: "{{ vault_status_raw.stdout | from_json }}"
+
+- name: Assert Vault is initialized and unsealed
+  assert:
+    that:
+      - vault_status.initialized
+      - not vault_status.sealed
+    fail_msg: "Expected Vault to be initialized and unsealed, got initialized={{ vault_status.initialized }} sealed={{ vault_status.sealed }}."

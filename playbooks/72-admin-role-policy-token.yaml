@@ -1,0 +1,113 @@
+---
+- name: Configure Vault SSH admin role, policy, and token
+  hosts: "{{ groups['vault'][0] }}"
+  become: true
+
+  vars:
+    vault_cli_env:
+      VAULT_ADDR: "{{ vault_api_addr }}"
+      VAULT_CLIENT_CERT: "{{ vault_server_cert_path }}"
+      VAULT_CLIENT_KEY: "{{ vault_server_key_path }}"
+      VAULT_CACERT: "{{ vault_ca_cert_path }}"
+    vault_cli_auth_env: "{{ vault_cli_env | combine({'VAULT_TOKEN': vault_root_token}) }}"
+
+  vars_files:
+    - ../vars/vault-init-unseal-config.yaml
+    - ../vars/bootstrap-tls-vault-consul.yaml
+    - ../vars/vault-config-ssh.yaml
+
+  environment: "{{ vault_cli_env }}"
+
+  tasks:
+    - name: Load Vault init data and root token
+      import_tasks: ../tasks/vault/read-init-token.yaml
+
+    - name: Check Vault is initialized and unsealed
+      import_tasks: ../tasks/vault/assert-initialized-unsealed.yaml
+
+    - name: Write Vault SSH admin role policy file
+      copy:
+        dest: "{{ vault_ssh_admin_policy_file }}"
+        owner: root
+        group: root
+        mode: "0600"
+        content: "{{ vault_ssh_admin_policy_hcl }}"
+
+    - name: Create or update Vault SSH admin signing role
+      command:
+        argv:
+          - vault
+          - write
+          - -address={{ vault_api_addr }}
+          - "{{ vault_ssh_secrets_mount_path }}/roles/{{ vault_ssh_admin_role_name }}"
+          - key_type=ca
+          - allowed_users={{ vault_ssh_admin_allowed_users }}
+          - default_user={{ vault_ssh_admin_default_user }}
+          - ttl={{ vault_ssh_admin_ttl }}
+      register: vault_ssh_admin_role_write
+      changed_when: true
+      environment: "{{ vault_cli_auth_env }}"
+      no_log: true
+
+    - name: Create or update Vault admin SSH policy
+      command:
+        argv:
+          - vault
+          - policy
+          - write
+          - -address={{ vault_api_addr }}
+          - "{{ vault_ssh_admin_policy_name }}"
+          - "{{ vault_ssh_admin_policy_file }}"
+      register: vault_ssh_admin_policy_write
+      changed_when: true
+      environment: "{{ vault_cli_auth_env }}"
+      no_log: true
+
+    - name: Create Vault token for admin SSH signing policy
+      command:
+        argv:
+          - vault
+          - token
+          - create
+          - -address={{ vault_api_addr }}
+          - -policy={{ vault_ssh_admin_policy_name }}
+          - -format=json
+      register: vault_ssh_admin_token_create
+      changed_when: true
+      environment: "{{ vault_cli_auth_env }}"
+      no_log: true
+
+    - name: Parse Vault admin SSH token
+      set_fact:
+        vault_ssh_admin_token: "{{ (vault_ssh_admin_token_create.stdout | from_json).auth.client_token }}"
+      no_log: true
+
+- name: Distribute Vault SSH admin signing token to bastion
+  hosts: bastion_primary
+  become: true
+  gather_facts: false
+
+  vars_files:
+    - ../vars/bootstrap-tls-vault-consul.yaml
+    - ../vars/vault-config-ssh.yaml
+
+  vars:
+    vault_ssh_admin_token: "{{ hostvars[groups['vault'][0]].vault_ssh_admin_token }}"
+
+  tasks:
+    - name: Ensure admin SSH token directory exists on bastion
+      file:
+        path: "{{ vault_ssh_admin_token_path_bastion | dirname }}"
+        state: directory
+        owner: ansible
+        group: ansible
+        mode: "0700"
+
+    - name: Store admin SSH signing token on bastion
+      copy:
+        dest: "{{ vault_ssh_admin_token_path_bastion }}"
+        owner: ansible
+        group: ansible
+        mode: "0600"
+        content: "{{ vault_ssh_admin_token }}\n"
+      no_log: true

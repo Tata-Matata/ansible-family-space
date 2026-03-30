@@ -23,6 +23,13 @@
   - Create a centralized source of truth for TLS file permissions
   - Makes future permission changes simpler and less error-prone
 
+### Bootstrap Secret Migration
+- [ ] Move bootstrap secrets from Ansible Vault files into HashiCorp Vault after the platform is fully operational
+  - Start with Keycloak bootstrap secrets currently stored in `vars/keycloak-secrets.yaml`
+  - Define which secrets remain deployment-time only versus runtime-managed in Vault
+  - Update playbooks to read steady-state secrets from HashiCorp Vault instead of repo-managed encrypted files where appropriate
+  - Remove or minimize long-term reliance on repo-stored bootstrap secrets once the Vault-based secret flow is proven
+
 ## Developer Workflow
 
 - [ ] Add `lefthook` with a Bash validation script for Ansible playbooks

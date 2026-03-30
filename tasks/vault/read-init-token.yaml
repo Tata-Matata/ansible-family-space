@@ -1,0 +1,20 @@
+- name: Ensure Vault init file exists
+  stat:
+    path: "{{ vault_init_file }}"
+  register: vault_init_file_stat
+
+- name: Fail if Vault init file is missing
+  fail:
+    msg: "Vault init file is missing at {{ vault_init_file }}. Initialize Vault first."
+  when: not vault_init_file_stat.stat.exists
+
+- name: Read Vault init file
+  slurp:
+    path: "{{ vault_init_file }}"
+  register: vault_init_file_raw
+
+- name: Parse Vault init file
+  set_fact:
+    vault_init_data: "{{ vault_init_file_raw.content | b64decode | from_json }}"
+    vault_root_token: "{{ (vault_init_file_raw.content | b64decode | from_json).root_token }}"
+  no_log: true

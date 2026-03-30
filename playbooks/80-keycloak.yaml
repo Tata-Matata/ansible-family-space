@@ -1,7 +1,7 @@
 ---
 # 00: validate inventory and required vars
-# 10: install Docker runtime on the OIDC VM
-# 20: deploy PostgreSQL + Keycloak containers
+# 10: install Java, PostgreSQL, and service prerequisites on the OIDC VM
+# 20: install Keycloak from the upstream archive and configure systemd
 # 30: bootstrap realm and admin group
 # 40: configure the Vault OIDC client
 # 90: verify service readiness and exported values

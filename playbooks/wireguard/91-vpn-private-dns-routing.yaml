@@ -1,0 +1,104 @@
+---
+- name: Configure VPN routing and private DNS on bastion
+  hosts: bastion_primary
+  become: true
+  gather_facts: false
+
+  vars_files:
+    - ../../vars/wireguard-bastion.yaml
+
+  tasks:
+    - name: Build WireGuard DNS records from inventory hosts
+      set_fact:
+        wireguard_inventory_dns_records: "{{ wireguard_inventory_dns_records | default([]) + [{'name': item, 'ip': (hostvars[item].ansible_host | default(hostvars[item].bastion_private_ip | default(item)))}] }}"
+      loop: "{{ groups['all'] }}"
+
+    - name: Build WireGuard DNS records from service aliases
+      set_fact:
+        wireguard_service_dns_records: "{{ wireguard_service_dns_records | default([]) + [{'name': dns_name, 'ip': (hostvars[item.value.host].ansible_host | default(hostvars[item.value.host].bastion_private_ip | default(item.value.host)))}] }}"
+      loop: "{{ dns_entries | dict2items | subelements('value.names') }}"
+      loop_control:
+        label: "{{ item.0.key }} -> {{ item.1 }}"
+      vars:
+        dns_name: "{{ item.1 }}"
+
+    - name: Combine WireGuard DNS records
+      set_fact:
+        wireguard_dns_records: "{{ ((wireguard_inventory_dns_records | default([])) + (wireguard_service_dns_records | default([]))) | unique(attribute='name') }}"
+
+    - name: Ensure dnsmasq is installed
+      apt:
+        name: dnsmasq
+        state: present
+        update_cache: true
+
+    - name: Render dnsmasq config for WireGuard clients
+      template:
+        src: templates/wireguard-private-services.dnsmasq.conf.j2
+        dest: "{{ wireguard_dns_config_path }}"
+        owner: root
+        group: root
+        mode: "0644"
+      register: wireguard_dns_config
+
+    - name: Enable and restart dnsmasq when config changes
+      systemd:
+        name: dnsmasq
+        enabled: true
+        state: "{{ 'restarted' if wireguard_dns_config.changed else 'started' }}"
+
+    - name: Check INPUT DNS UDP rule from WireGuard interface
+      command: iptables -C INPUT -i {{ wireguard_interface }} -p udp --dport 53 -j ACCEPT
+      register: input_wireguard_dns_udp_exists
+      failed_when: false
+      changed_when: false
+
+    - name: Allow INPUT DNS UDP from WireGuard interface
+      command: iptables -I INPUT 5 -i {{ wireguard_interface }} -p udp --dport 53 -j ACCEPT
+      when: input_wireguard_dns_udp_exists.rc != 0
+
+    - name: Check INPUT DNS TCP rule from WireGuard interface
+      command: iptables -C INPUT -i {{ wireguard_interface }} -p tcp --dport 53 -j ACCEPT
+      register: input_wireguard_dns_tcp_exists
+      failed_when: false
+      changed_when: false
+
+    - name: Allow INPUT DNS TCP from WireGuard interface
+      command: iptables -I INPUT 6 -i {{ wireguard_interface }} -p tcp --dport 53 -j ACCEPT
+      when: input_wireguard_dns_tcp_exists.rc != 0
+
+    - name: Check VPN to private forward rules
+      command: iptables -C FORWARD -i {{ wireguard_interface }} -o {{ wireguard_private_iface }} -d {{ item }} -j ACCEPT
+      register: wireguard_to_private_forward_checks
+      failed_when: false
+      changed_when: false
+      loop: "{{ wireguard_private_network_cidrs }}"
+      loop_control:
+        label: "{{ item }}"
+
+    - name: Allow VPN to private forwarding
+      command: iptables -I FORWARD 1 -i {{ wireguard_interface }} -o {{ wireguard_private_iface }} -d {{ item.item }} -j ACCEPT
+      when: item.rc != 0
+      loop: "{{ wireguard_to_private_forward_checks.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Check established private to VPN forward rule
+      command: iptables -C FORWARD -i {{ wireguard_private_iface }} -o {{ wireguard_interface }} -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+      register: private_to_wireguard_established_exists
+      failed_when: false
+      changed_when: false
+
+    - name: Allow established private to VPN forwarding
+      command: iptables -I FORWARD 2 -i {{ wireguard_private_iface }} -o {{ wireguard_interface }} -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+      when: private_to_wireguard_established_exists.rc != 0
+
+    - name: Save iptables rules after VPN routing changes
+      command: netfilter-persistent save
+      changed_when: false
+
+    - name: Show WireGuard client routing reminders
+      debug:
+        msg:
+          - "Set WireGuard client DNS to {{ wireguard_dns_listen_ip }}."
+          - "Include private routes {{ wireguard_private_network_cidrs | join(', ') }} and {{ wireguard_network_cidr }} in the client AllowedIPs."

@@ -1,0 +1,18 @@
+[Unit]
+Description=Keycloak
+Requires=network-online.target postgresql.service
+After=network-online.target postgresql.service
+
+[Service]
+User={{ keycloak_user }}
+Group={{ keycloak_group }}
+EnvironmentFile={{ keycloak_env_file }}
+WorkingDirectory={{ keycloak_home }}
+ExecStart={{ keycloak_home }}/bin/kc.sh start --optimized --http-enabled=true --http-port={{ keycloak_port }} --hostname={{ oidc_service_name }} --proxy-headers=xforwarded
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=1024000
+SuccessExitStatus=143
+
+[Install]
+WantedBy=multi-user.target
