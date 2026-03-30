@@ -20,10 +20,11 @@ keycloak_db_host: 127.0.0.1
 keycloak_db_port: 5432
 keycloak_db_url: "jdbc:postgresql://{{ keycloak_db_host }}:{{ keycloak_db_port }}/{{ keycloak_postgres_db }}"
 keycloak_admin_cli_server_url: "http://127.0.0.1:{{ keycloak_port }}"
+keycloak_management_port: 9000
 keycloak_postgres_db: keycloak
 keycloak_postgres_user: keycloak
 keycloak_admin_user: admin
-keycloak_healthcheck_url: "http://127.0.0.1:{{ keycloak_port }}/health/ready"
+keycloak_healthcheck_url: "http://127.0.0.1:{{ keycloak_management_port }}/health/ready"
 keycloak_vault_client_id: vault
 keycloak_vault_redirect_uris:
   - http://localhost:8250/oidc/callback
