@@ -10,14 +10,21 @@
     - ../../vars/keycloak.yaml
 
   tasks:
-    - name: Install Keycloak runtime packages
+    - name: Install ACL package
       apt:
-        name:
-          - "{{ keycloak_java_package }}"
-          - postgresql
-          - acl
+        name: acl
         state: present
         update_cache: true
+
+    - name: Install PostgreSQL package
+      apt:
+        name: postgresql
+        state: present
+
+    - name: Install Keycloak Java runtime package
+      apt:
+        name: "{{ keycloak_java_package }}"
+        state: present
 
     - name: Create Keycloak group
       group:
