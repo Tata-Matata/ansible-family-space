@@ -10,6 +10,28 @@
     - ../../vars/keycloak-secrets.yaml
 
   tasks:
+    - name: Assert Keycloak TLS files are present when HTTPS is enabled
+      include_role:
+        name: assert_paths
+      vars:
+        required_paths:
+          - path: "{{ keycloak_ca_cert_path }}"
+            type: file
+            owner: "{{ keycloak_user }}"
+            group: "{{ keycloak_group }}"
+            mode: "0644"
+          - path: "{{ keycloak_server_cert_path }}"
+            type: file
+            owner: "{{ keycloak_user }}"
+            group: "{{ keycloak_group }}"
+            mode: "0644"
+          - path: "{{ keycloak_server_key_path }}"
+            type: file
+            owner: "{{ keycloak_user }}"
+            group: "{{ keycloak_group }}"
+            mode: "0600"
+      when: keycloak_tls_enabled
+
     - name: Ensure PostgreSQL service is enabled and started
       systemd:
         name: postgresql

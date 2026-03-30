@@ -1,5 +1,8 @@
-keycloak_scheme: http
-keycloak_port: 8080
+keycloak_tls_enabled: true
+keycloak_http_port: 8080
+keycloak_https_port: 8443
+keycloak_scheme: "{{ 'https' if keycloak_tls_enabled else 'http' }}"
+keycloak_port: "{{ keycloak_https_port if keycloak_tls_enabled else keycloak_http_port }}"
 keycloak_base_url: "{{ keycloak_scheme }}://{{ oidc_service_name }}:{{ keycloak_port }}"
 keycloak_realm_name: infra
 keycloak_admin_group_name: infra-admins
@@ -12,6 +15,13 @@ keycloak_install_dir: "{{ keycloak_install_root }}/keycloak-{{ keycloak_version 
 keycloak_home: "{{ keycloak_install_root }}/current"
 keycloak_config_dir: /etc/keycloak
 keycloak_env_file: "{{ keycloak_config_dir }}/keycloak.env"
+keycloak_tls_dir: "{{ keycloak_config_dir }}/tls"
+keycloak_server_cert_file: oidc-server.pem
+keycloak_server_key_file: oidc-server.key
+keycloak_ca_cert_file: ca.pem
+keycloak_server_cert_path: "{{ keycloak_tls_dir }}/{{ keycloak_server_cert_file }}"
+keycloak_server_key_path: "{{ keycloak_tls_dir }}/{{ keycloak_server_key_file }}"
+keycloak_ca_cert_path: "{{ keycloak_tls_dir }}/{{ keycloak_ca_cert_file }}"
 keycloak_data_dir: /var/lib/keycloak
 keycloak_log_dir: /var/log/keycloak
 keycloak_user: keycloak
@@ -19,7 +29,7 @@ keycloak_group: keycloak
 keycloak_db_host: 127.0.0.1
 keycloak_db_port: 5432
 keycloak_db_url: "jdbc:postgresql://{{ keycloak_db_host }}:{{ keycloak_db_port }}/{{ keycloak_postgres_db }}"
-keycloak_admin_cli_server_url: "http://127.0.0.1:{{ keycloak_port }}"
+keycloak_admin_cli_server_url: "http://127.0.0.1:{{ keycloak_http_port }}"
 keycloak_management_port: 9000
 keycloak_postgres_db: keycloak
 keycloak_postgres_user: keycloak

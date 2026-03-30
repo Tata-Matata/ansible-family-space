@@ -1,0 +1,2 @@
+---
+- import_playbook: 20-deploy-stack.yaml

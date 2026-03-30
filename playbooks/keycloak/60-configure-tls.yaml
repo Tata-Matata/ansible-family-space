@@ -1,0 +1,176 @@
+---
+# Reuse the existing internal CA on Bastion to issue and distribute a private TLS certificate for Keycloak.
+
+- name: Issue Keycloak TLS certificate on Bastion
+  hosts: bastion_primary
+  gather_facts: false
+  become: true
+
+  vars_files:
+    - ../../vars/keycloak.yaml
+    - ../../vars/bootstrap-tls-vault-consul.yaml
+
+  vars:
+    keycloak_bastion_tmp_tls_dir: "{{ bastion_tmp_tls_dir }}/oidc"
+
+  tasks:
+    - name: End TLS issuance play when Keycloak TLS is disabled
+      meta: end_play
+      when: not keycloak_tls_enabled
+
+    - name: Ensure bootstrap CA certificate exists on Bastion
+      stat:
+        path: "{{ bastion_ca_cert_path }}"
+      register: keycloak_bastion_ca_cert
+      changed_when: false
+
+    - name: Ensure bootstrap CA private key exists on Bastion
+      stat:
+        path: "{{ bastion_ca_key_path }}"
+      register: keycloak_bastion_ca_key
+      changed_when: false
+
+    - name: Fail when internal CA is missing on Bastion
+      fail:
+        msg: >-
+          Missing internal CA on Bastion at {{ bastion_ca_cert_path }} and/or {{ bastion_ca_key_path }}.
+          Run the existing TLS bootstrap before enabling Keycloak HTTPS.
+      when:
+        - not keycloak_bastion_ca_cert.stat.exists or not keycloak_bastion_ca_key.stat.exists
+
+    - name: Ensure temporary Bastion TLS directories for Keycloak exist
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      loop:
+        - "{{ keycloak_bastion_tmp_tls_dir }}"
+        - "{{ keycloak_bastion_tmp_tls_dir }}/{{ groups['oidc'][0] }}"
+
+    - name: Build Keycloak TLS SAN list
+      set_fact:
+        keycloak_tls_sans:
+          - "DNS:{{ oidc_service_name }}"
+          - "DNS:{{ groups['oidc'][0] }}"
+          - "DNS:localhost"
+          - "IP:{{ hostvars[groups['oidc'][0]].ansible_host }}"
+          - "IP:127.0.0.1"
+      changed_when: false
+
+    - name: Generate Keycloak TLS private key
+      community.crypto.openssl_privatekey:
+        path: "{{ keycloak_bastion_tmp_tls_dir }}/{{ groups['oidc'][0] }}/{{ keycloak_server_key_file }}"
+        type: Ed25519
+        owner: root
+        group: root
+        mode: "0600"
+
+    - name: Generate Keycloak TLS CSR
+      community.crypto.openssl_csr:
+        path: "{{ keycloak_bastion_tmp_tls_dir }}/{{ groups['oidc'][0] }}/keycloak.csr"
+        privatekey_path: "{{ keycloak_bastion_tmp_tls_dir }}/{{ groups['oidc'][0] }}/{{ keycloak_server_key_file }}"
+        common_name: "{{ oidc_service_name }}"
+        organization_name: "oidc"
+        subject_alt_name: "{{ keycloak_tls_sans }}"
+
+    - name: Sign Keycloak TLS certificate with internal CA
+      community.crypto.x509_certificate:
+        path: "{{ keycloak_bastion_tmp_tls_dir }}/{{ groups['oidc'][0] }}/{{ keycloak_server_cert_file }}"
+        csr_path: "{{ keycloak_bastion_tmp_tls_dir }}/{{ groups['oidc'][0] }}/keycloak.csr"
+        provider: ownca
+        ownca_path: "{{ bastion_ca_cert_path }}"
+        ownca_privatekey_path: "{{ bastion_ca_key_path }}"
+        ownca_not_after: "+{{ bootstrap_ca_ttl_days }}d"
+        owner: root
+        group: root
+        mode: "0644"
+
+- name: Install Keycloak TLS material on OIDC hosts
+  hosts: oidc
+  gather_facts: false
+  become: true
+
+  vars_files:
+    - ../../vars/keycloak.yaml
+    - ../../vars/bootstrap-tls-vault-consul.yaml
+
+  vars:
+    keycloak_bastion_tmp_tls_dir: "{{ bastion_tmp_tls_dir }}/oidc"
+
+  tasks:
+    - name: End TLS installation play when Keycloak TLS is disabled
+      meta: end_play
+      when: not keycloak_tls_enabled
+
+    - name: Ensure Keycloak TLS directory exists
+      file:
+        path: "{{ keycloak_tls_dir }}"
+        state: directory
+        owner: "{{ keycloak_user }}"
+        group: "{{ keycloak_group }}"
+        mode: "0750"
+
+    - name: Copy Keycloak CA certificate from Bastion
+      copy:
+        src: "{{ bastion_ca_cert_path }}"
+        dest: "{{ keycloak_ca_cert_path }}"
+        owner: "{{ keycloak_user }}"
+        group: "{{ keycloak_group }}"
+        mode: "0644"
+
+    - name: Copy Keycloak TLS certificate from Bastion
+      copy:
+        src: "{{ keycloak_bastion_tmp_tls_dir }}/{{ inventory_hostname }}/{{ keycloak_server_cert_file }}"
+        dest: "{{ keycloak_server_cert_path }}"
+        owner: "{{ keycloak_user }}"
+        group: "{{ keycloak_group }}"
+        mode: "0644"
+
+    - name: Copy Keycloak TLS private key from Bastion
+      copy:
+        src: "{{ keycloak_bastion_tmp_tls_dir }}/{{ inventory_hostname }}/{{ keycloak_server_key_file }}"
+        dest: "{{ keycloak_server_key_path }}"
+        owner: "{{ keycloak_user }}"
+        group: "{{ keycloak_group }}"
+        mode: "0600"
+
+    - name: Install Keycloak CA certificate in system trust store
+      copy:
+        src: "{{ bastion_ca_cert_path }}"
+        dest: /usr/local/share/ca-certificates/oidc-ca.crt
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Update system CA certificates
+      command: update-ca-certificates
+      changed_when: "'0 added' not in keycloak_update_ca_result.stdout"
+      register: keycloak_update_ca_result
+
+    - name: Assert Keycloak TLS files exist on OIDC host
+      include_role:
+        name: assert_paths
+      vars:
+        required_paths:
+          - path: "{{ keycloak_tls_dir }}"
+            type: folder
+            owner: "{{ keycloak_user }}"
+            group: "{{ keycloak_group }}"
+            mode: "0750"
+          - path: "{{ keycloak_ca_cert_path }}"
+            type: file
+            owner: "{{ keycloak_user }}"
+            group: "{{ keycloak_group }}"
+            mode: "0644"
+          - path: "{{ keycloak_server_cert_path }}"
+            type: file
+            owner: "{{ keycloak_user }}"
+            group: "{{ keycloak_group }}"
+            mode: "0644"
+          - path: "{{ keycloak_server_key_path }}"
+            type: file
+            owner: "{{ keycloak_user }}"
+            group: "{{ keycloak_group }}"
+            mode: "0600"

@@ -13,6 +13,9 @@ This playbook stream installs and bootstraps a private Keycloak instance on the 
 - `playbooks/keycloak/10_install_runtime.yaml`
   Installs OpenJDK, PostgreSQL, the Keycloak service user, and local directories.
 
+- `playbooks/keycloak/15_configure_tls.yaml`
+  Issues a private TLS certificate for Keycloak from the existing internal CA on Bastion and installs it on the OIDC VM.
+
 - `playbooks/keycloak/20_deploy_stack.yaml`
   Downloads Keycloak, configures PostgreSQL, renders the Keycloak environment and systemd unit, and starts the services.
 
@@ -71,8 +74,9 @@ ansible-playbook playbooks/80-keycloak.yaml --ask-vault-pass
 
 - The `oidc` VM already exists in inventory and is reachable by Ansible.
 - Keycloak is private-only and intended to be reached over the private network or VPN.
+- The existing internal CA on Bastion has already been created, because Keycloak TLS reuses it to issue the OIDC server certificate.
 - The target VM provides the `{{ keycloak_java_package | default('openjdk-21-jre-headless') }}` package in its apt repositories.
-- The initial deployment uses internal HTTP on port `8080`.
+- Keycloak serves browser traffic over private HTTPS on port `8443` and keeps localhost HTTP on port `8080` for local admin CLI/bootstrap tasks.
 - Vault OIDC integration will later consume the Keycloak discovery URL printed by the verify step.
 
 ## Follow-up
@@ -81,4 +85,4 @@ After Keycloak is deployed and verified:
 
 1. Update `vars/vault-human-auth.yaml` with the Keycloak discovery URL, client ID, and client secret.
 2. Run the Vault human-auth playbooks through `playbooks/90-wireguard.yaml` or the split playbooks under `playbooks/wireguard/`.
-3. Later harden Keycloak with private TLS if you do not want internal HTTP for steady state.
+3. Trust the internal CA certificate on the browser clients that will reach the private OIDC service over WireGuard.

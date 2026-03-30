@@ -31,6 +31,8 @@
         that:
           - oidc_service_name | length > 0
           - keycloak_port | int > 0
+          - keycloak_http_port | int > 0
+          - keycloak_management_port | int > 0
           - keycloak_version | length > 0
           - keycloak_archive_url | length > 0
           - keycloak_java_package | length > 0
