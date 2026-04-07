@@ -8,5 +8,6 @@
     validate_certs: true
     timeout: "{{ verify_https_timeout }}"
     status_code: "{{ verify_https_expected_status }}"
+    headers: "{{ verify_https_headers | default(omit) }}"
   register: verify_https_result
   changed_when: false
