@@ -25,6 +25,9 @@
     _cleanup_dirs:
       - "{{ bastion_tls_dir }}"
       - "{{ bastion_tmp_tls_dir }}"
+      - "{{ keycloak_tls_dir | default('/etc/keycloak/tls') }}"
+      - "{{ bastion_tmp_tls_dir }}/oidc"
+
   tasks:
   - name: Skip unless cleanup_bootstrap_tls=yes
     when: (cleanup_bootstrap_tls | default('no')) != 'yes'
@@ -94,3 +97,22 @@
         name: clear_paths
       vars:
         clear_path: "{{ bastion_tls_dir }}"
+        
+  # Remove distributed bootstrap TLS artifacts from OIDC (Keycloak) hosts
+- name: Remove distributed bootstrap TLS artifacts from OIDC hosts (Keycloak)
+  hosts: oidc
+  gather_facts: false
+  become: true
+  vars_files:
+    - ../vars/bootstrap-tls-vault-consul.yaml
+    - ../vars/keycloak.yaml
+  tasks:
+    - name: Skip unless cleanup_nodes=yes
+      when: (cleanup_nodes | default('no')) != 'yes'
+      ansible.builtin.meta: end_play
+
+    - name: Clear directory contents (keep root)
+      ansible.builtin.include_role:
+        name: clear_paths
+      vars:
+        clear_path: "{{ keycloak_tls_dir }}"
