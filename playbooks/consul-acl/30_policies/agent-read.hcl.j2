@@ -1,0 +1,11 @@
+# agent-read policy for Consul
+# Grants read-only access to agent endpoints for monitoring/diagnostics
+
+agent_prefix "" {
+  policy = "read"
+}
+
+# Optionally, restrict to bastion nodes only by node identity
+# node "bastion-*" {
+#   policy = "read"
+# }

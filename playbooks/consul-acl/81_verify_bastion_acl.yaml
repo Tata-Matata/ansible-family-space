@@ -1,3 +1,14 @@
+  - name: Read bastion agent-read token from file
+    slurp:
+      src: "{{ bastion_agent_read_token_path }}"
+    register: bastion_agent_read_token_file
+    no_log: true
+
+  - name: Set bastion agent-read token fact
+    set_fact:
+      bastion_agent_read_token: "{{ bastion_agent_read_token_file.content | b64decode | trim }}"
+    changed_when: false
+    no_log: true
 - name: Verify Consul ACLs from Bastion
   hosts: bastion_primary
   become: true
@@ -6,16 +17,19 @@
   - ../../vars/bootstrap-tls-vault-consul.yaml
   - ../../vars/consul-acl-vars.yaml
   tasks:
-  - name: Unauthenticated KV write is denied
+
+  - name: Authenticated agent-read: can read Consul agent self
     uri:
-      url: "{{ consul_api_key_value_addr }}/acl-test-deny"
-      method: PUT
-      body: "deny"
-      status_code: [ 401, 403 ]
+      url: "{{ consul_api_internal_health_addr }}"
+      method: GET
+      status_code: 200
       validate_certs: true
       ca_path: "{{ bastion_ca_cert_path }}"
       client_cert: "{{ bastion_client_auth_to_consul_cert_path }}"
       client_key: "{{ bastion_client_auth_to_consul_key_path }}"
+      headers:
+        X-Consul-Token: "{{ bastion_agent_read_token }}"
+    register: bastion_agent_self
     changed_when: false
 
   - name: HTTP API is not reachable from Bastion

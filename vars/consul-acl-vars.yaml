@@ -9,9 +9,11 @@ vault_consul_token_tmp_path_bastion: "{{ consul_tokens_tmp_dir }}/vault-backend.
 
 
 
+
 consul_acl_policy: "consul-servers-acl-policy"
 vault_acl_policy: "vault-acl-policy"
 k8s_acl_policy: "k8s-acl-policy"
+bastion_agent_read_acl_policy: "bastion-agent-read-policy"
 
 # Token files on Consul client hosts
 consul_server_token_path: "/etc/consul.d/token.hcl"
@@ -19,3 +21,5 @@ consul_server_agent_token_raw_path: "/etc/consul.d/agent.token"
 vault_consul_storage_config_path: "/etc/vault.d/consul.hcl"
 vault_consul_token_path: "/etc/vault.d/consul.token"
 vault_consul_systemd_override_path: "/etc/systemd/system/vault.service.d/consul-token.conf"
+# Bastion agent-read token path (for status checks from bastion)
+bastion_agent_read_token_path: "/etc/consul.d/agent.token"

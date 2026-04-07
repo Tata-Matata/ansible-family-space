@@ -22,6 +22,8 @@
 - import_playbook: consul-acl/41_distribute_consul_server_token.yaml
 - import_playbook: consul-acl/42_create_vault_token.yaml
 - import_playbook: consul-acl/43_distribute_vault_token.yaml
+- import_playbook: consul-acl/44_create_bastion_agent_read_token.yaml
+- import_playbook: consul-acl/45_distribute_bastion_agent_read_token.yaml
 - import_playbook: consul-acl/81_verify_bastion_acl.yaml
 - import_playbook: consul-acl/82_verify_vault_acl.yaml
 - import_playbook: consul-acl/83_verify_consul_server_acl.yaml

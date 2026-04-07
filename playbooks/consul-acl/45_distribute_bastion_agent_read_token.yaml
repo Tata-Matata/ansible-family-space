@@ -1,0 +1,14 @@
+- hosts: bastion
+  become: true
+  gather_facts: false
+  vars_files:
+    - ../../vars/bootstrap-tls-vault-consul.yaml
+    - ../../vars/consul-acl-vars.yaml
+  tasks:
+    - name: Copy bastion agent-read token from Bastion primary
+      ansible.builtin.copy:
+        src: "{{ bastion_agent_read_token_path }}"
+        dest: "{{ bastion_agent_read_token_path }}"
+        owner: ansible
+        group: ansible
+        mode: '0600'

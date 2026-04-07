@@ -9,6 +9,7 @@
     - { name: "{{ consul_acl_policy }}", file: "30_policies/consul-servers.hcl.j2" }
     - { name: "{{ vault_acl_policy }}", file: "30_policies/vault.hcl.j2" }
     - { name: "{{ k8s_acl_policy }}", file: "30_policies/k8s.hcl.j2" }
+    - { name: "{{ bastion_agent_read_acl_policy }}", file: "30_policies/agent-read.hcl.j2" }
   tasks:
   - name: Load Consul management token
     import_tasks: tasks/read_mgmt_token.yaml
