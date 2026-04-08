@@ -12,7 +12,8 @@ vault_human_oidc_scopes:
 vault_human_oidc_allowed_redirect_uris:
   - http://localhost:8250/oidc/callback
   - http://127.0.0.1:8250/oidc/callback
-vault_human_oidc_required_groups: []
+vault_human_oidc_required_groups:
+  - infra-admins
 vault_human_policy_name: human-ssh
 vault_human_policy_file: /var/lib/vault-state/human-ssh-policy.hcl
 vault_human_policy_hcl: |
