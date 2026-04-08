@@ -25,9 +25,9 @@
         state: present
         update_cache: true
 
-    - name: Ensure /etc/wireguard exists
+    - name: Ensure WireGuard configuration directory exists
       file:
-        path: /etc/wireguard
+        path: "{{ wireguard_config_dir }}"
         state: directory
         owner: root
         group: root
