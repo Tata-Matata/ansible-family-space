@@ -1,5 +1,10 @@
 # 90-wireguard
 
+The full administrator access setup is split across two wrappers:
+
+- `playbooks/85-vault-human-auth.yaml` configures Vault human OIDC auth and the SSH-signing roles that depend on Keycloak.
+- `playbooks/90-wireguard.yaml` configures the bastion WireGuard server, VPN-side DNS/routing, and basic WireGuard runtime verification.
+
 This setup provides private administrator access to the cluster through three connected pieces:
 
 - WireGuard provides private network access from an administrator workstation into the internal network.
@@ -32,6 +37,15 @@ WireGuard is the entry point into the private environment.
 - VPN clients receive access to the internal network ranges.
 - Private DNS is available over the VPN so internal service names resolve from the administrator workstation.
 
+WireGuard authentication uses its own keypairs.
+
+- Each laptop has its own WireGuard private key and public key.
+- Bastion has its own WireGuard private key and public key.
+- Bastion accepts a VPN peer only if that laptop public key is configured on the server.
+- The laptop uses Bastion's WireGuard public key to verify the remote VPN peer.
+
+These WireGuard keys are only for VPN access. They are not SSH keys and are not signed by Vault.
+
 This keeps Vault, Keycloak, and the target hosts private. They do not need to be exposed publicly for human administration.
 
 ### Keycloak
@@ -55,6 +69,13 @@ Vault is the trust broker between human authentication and SSH access.
 
 Vault also owns the SSH certificate authority used for human logins.
 
+Vault does not replace the administrator's SSH keypair.
+
+- The administrator still keeps a normal SSH private key and public key on the workstation.
+- The SSH public key is submitted to Vault.
+- Vault signs that public key with the cluster SSH CA.
+- The resulting SSH certificate is used together with the administrator's existing SSH private key.
+
 ### SSH CA Trust on Hosts
 
 Every host that should accept administrator SSH certificates must trust the Vault SSH CA public key.
@@ -63,14 +84,98 @@ Every host that should accept administrator SSH certificates must trust the Vaul
 - `sshd` is configured to trust that CA for user certificates.
 - Because hosts trust the CA, they do not need individual administrator public keys in `authorized_keys`.
 
+This means hosts trust the Vault SSH CA, not the administrator public key directly.
+
+- The administrator proves possession of the SSH private key locally.
+- The host verifies that the presented SSH certificate was signed by the trusted Vault SSH CA.
+- Access is granted only if both the private key and the signed certificate are valid.
+
+### How Vault SSH Authorization Relates To Linux Permissions
+
+Vault controls whether a user is allowed to obtain an SSH certificate and what kind of certificate can be issued.
+
+That control is separate from the normal Linux authorization model on the target host.
+
+In practice, there are two layers:
+
+1. Vault decides whether the administrator may receive a signed SSH certificate for a specific SSH role.
+2. The target Linux host decides what that logged-in Unix user is allowed to do after login.
+
+Vault SSH roles can restrict certificate issuance in ways such as:
+
+- which Unix username is allowed in the certificate
+- which Unix username becomes the default username
+- how long the certificate remains valid
+- which SSH signing endpoint the authenticated user is allowed to call
+
+That means Vault can prevent a user from obtaining a certificate for an arbitrary Unix account.
+
+For example, if the Vault SSH role allows only the Unix account `ansible`, then Vault will not issue a valid certificate for `root`.
+
+But after login, Linux still applies its own permissions:
+
+- file ownership and file permissions
+- group membership
+- `sudo` rules
+- PAM and other local access controls
+
+So a Vault-signed certificate does not bypass Linux authorization.
+
+It only proves that:
+
+- Vault authorized the user to log in as the Unix account encoded into the SSH certificate
+- the user possesses the matching SSH private key
+
+Whether that Unix account is effectively an administrator depends on Linux configuration on the host.
+
+If the Unix account has broad `sudo` rights, then the user may become root after login through normal Linux privilege escalation.
+If the Unix account does not have such rights, the signed certificate alone does not grant root access.
+
+This separation is intentional:
+
+- Vault controls who may get short-lived login credentials and for which Unix account.
+- Linux controls what that Unix account may actually do on the host.
+
+So the system is designed to avoid handing out direct root SSH identity by default.
+Instead, Vault can issue a short-lived certificate for a limited Unix account, and any further privilege escalation remains subject to host-level policy.
+
+## Authentication Layers And Key Material
+
+There are three separate trust layers in this setup.
+
+### 1. WireGuard Authentication
+
+Purpose: get the workstation onto the private network.
+
+- Key material: WireGuard keypair per laptop.
+- Verified by: Bastion WireGuard server configuration.
+- Result: network-level access to private services over the VPN.
+
+### 2. OIDC Authentication
+
+Purpose: prove the human user's identity to Vault.
+
+- Key material: no local SSH or WireGuard keys are used for this step.
+- Verified by: Keycloak credentials and OIDC flow.
+- Result: a short-lived Vault token tied to the human auth role.
+
+### 3. SSH Authentication With Vault-Signed Certificate
+
+Purpose: log in to a target host.
+
+- Key material: the workstation's normal SSH keypair plus a short-lived SSH certificate returned by Vault.
+- Verified by: the target host's trusted Vault SSH CA public key.
+- Result: SSH login as the allowed Unix account for the configured role, subject to that host's normal Linux permissions and `sudo` policy.
+
 ## Administrator Workflow
 
 ### One-Time Workstation Preparation
 
 1. Install WireGuard.
 2. Install the Vault CLI.
-3. Ensure an SSH key pair exists on the workstation.
-4. Ensure the workstation trusts the internal CA used by private HTTPS services if browser-based OIDC login requires it.
+3. Generate a WireGuard key pair for the workstation and register its public key on the bastion.
+4. Ensure a separate SSH key pair exists on the workstation for host access.
+5. Ensure the workstation trusts the internal CA used by private HTTPS services if browser-based OIDC login requires it.
 
 ### Routine Login Workflow
 
@@ -80,8 +185,8 @@ Every host that should accept administrator SSH certificates must trust the Vaul
 4. Complete the Keycloak login flow in the browser.
 5. Receive a short-lived Vault token.
 6. Ask Vault to sign the workstation SSH public key.
-7. Save the returned SSH certificate next to the local private key.
-8. SSH to the target host using the local private key and the signed certificate.
+7. Save the returned SSH certificate next to the local SSH private key.
+8. SSH to the target host using the local SSH private key and the signed certificate.
 
 ### When Access Expires
 

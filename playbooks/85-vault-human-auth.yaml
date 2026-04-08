@@ -1,0 +1,7 @@
+---
+# 92: configure Vault OIDC auth for human users via Keycloak
+# 93: configure Vault human SSH signing policy, SSH role, and OIDC role binding
+# 94: verify Vault human auth configuration and trusted SSH CA distribution
+- import_playbook: vault-human-auth/92-vault-human-auth.yaml
+- import_playbook: vault-human-auth/93-vault-human-ssh-role.yaml
+- import_playbook: vault-human-auth/94-verify-human-ssh-signing-flow.yaml

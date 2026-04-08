@@ -48,7 +48,7 @@
       assert:
         that:
           - (vault_human_auth_mount_path ~ '/') in vault_auth_methods
-        fail_msg: Run wireguard/92-vault-human-auth.yaml before verifying the human auth flow.
+        fail_msg: Run vault-human-auth/92-vault-human-auth.yaml before verifying the human auth flow.
 
     - name: Read Vault human OIDC role
       command:

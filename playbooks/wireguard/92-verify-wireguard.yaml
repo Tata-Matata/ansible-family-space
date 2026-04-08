@@ -1,0 +1,77 @@
+---
+- name: Verify WireGuard installation and runtime state on bastion
+  hosts: bastion_primary
+  become: true
+  gather_facts: false
+
+  vars_files:
+    - ../../vars/wireguard-bastion.yaml
+
+  tasks:
+    - name: Gather service facts
+      ansible.builtin.service_facts:
+
+    - name: Check WireGuard configuration file
+      stat:
+        path: "{{ wireguard_config_path }}"
+      register: wireguard_config_file_stat
+
+    - name: Check WireGuard private key file
+      stat:
+        path: "{{ wireguard_private_key_path }}"
+      register: wireguard_private_key_file_stat
+
+    - name: Check WireGuard public key file
+      stat:
+        path: "{{ wireguard_public_key_path }}"
+      register: wireguard_public_key_file_stat
+
+    - name: Assert WireGuard files exist
+      assert:
+        that:
+          - wireguard_config_file_stat.stat.exists
+          - wireguard_private_key_file_stat.stat.exists
+          - wireguard_public_key_file_stat.stat.exists
+        fail_msg: WireGuard configuration or key files are missing on bastion.
+
+    - name: Assert WireGuard service is known to systemd
+      assert:
+        that:
+          - ('wg-quick@' ~ wireguard_interface ~ '.service') in ansible_facts.services
+        fail_msg: WireGuard service wg-quick@{{ wireguard_interface }} is not installed on bastion.
+
+    - name: Check WireGuard service is enabled
+      command: systemctl is-enabled wg-quick@{{ wireguard_interface }}
+      register: wireguard_service_enabled
+      changed_when: false
+
+    - name: Check WireGuard service is active
+      command: systemctl is-active wg-quick@{{ wireguard_interface }}
+      register: wireguard_service_active
+      changed_when: false
+
+    - name: Query live WireGuard interface state
+      command: wg show {{ wireguard_interface }}
+      register: wireguard_show
+      changed_when: false
+
+    - name: Query WireGuard interface IP address
+      command: ip -brief address show dev {{ wireguard_interface }}
+      register: wireguard_ip_addr
+      changed_when: false
+
+    - name: Assert WireGuard runtime state
+      assert:
+        that:
+          - wireguard_service_enabled.stdout == 'enabled'
+          - wireguard_service_active.stdout == 'active'
+          - wireguard_show.stdout is search('interface: ' ~ wireguard_interface)
+          - wireguard_ip_addr.stdout is search(wireguard_server_ip)
+        fail_msg: WireGuard is installed but not fully active or correctly configured on bastion.
+
+    - name: Show WireGuard verification summary
+      debug:
+        msg:
+          - "WireGuard service: {{ wireguard_service_active.stdout }}"
+          - "WireGuard interface: {{ wireguard_interface }}"
+          - "WireGuard address: {{ wireguard_ip_addr.stdout | trim }}"

@@ -1,6 +1,4 @@
 ---
 - import_playbook: wireguard/90-wireguard-bastion.yaml
 - import_playbook: wireguard/91-vpn-private-dns-routing.yaml
-- import_playbook: wireguard/92-vault-human-auth.yaml
-- import_playbook: wireguard/93-vault-human-ssh-role.yaml
-- import_playbook: wireguard/94-verify-human-ssh-signing-flow.yaml
+- import_playbook: wireguard/92-verify-wireguard.yaml
