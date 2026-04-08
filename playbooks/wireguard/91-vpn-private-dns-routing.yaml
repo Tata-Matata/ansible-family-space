@@ -15,7 +15,7 @@
 
     - name: Build WireGuard DNS records from service aliases
       set_fact:
-        wireguard_service_dns_records: "{{ wireguard_service_dns_records | default([]) + [{'name': dns_name, 'ip': (hostvars[item.value.host].ansible_host | default(hostvars[item.value.host].bastion_private_ip | default(item.value.host)))}] }}"
+        wireguard_service_dns_records: "{{ wireguard_service_dns_records | default([]) + [{'name': dns_name, 'ip': (hostvars[item.0.value.host].ansible_host | default(hostvars[item.0.value.host].bastion_private_ip | default(item.0.value.host)))}] }}"
       loop: "{{ dns_entries | dict2items | subelements('value.names') }}"
       loop_control:
         label: "{{ item.0.key }} -> {{ item.1 }}"
