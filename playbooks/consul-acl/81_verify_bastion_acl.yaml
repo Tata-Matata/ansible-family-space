@@ -30,7 +30,7 @@
       name: verify_https
     vars:
       verify_https_name: "Consul agent self from Bastion"
-      verify_https_url: "{{ consul_api_internal_health_addr }}"
+      verify_https_url: "{{ consul_api_health_addr }}"
       verify_https_client_cert: "{{ bastion_client_auth_to_consul_cert_path }}"
       verify_https_client_key: "{{ bastion_client_auth_to_consul_key_path }}"
       verify_https_ca_cert: "{{ bastion_ca_cert_path }}"
