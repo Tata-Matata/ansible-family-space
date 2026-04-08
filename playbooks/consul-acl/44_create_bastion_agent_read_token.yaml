@@ -2,22 +2,36 @@
   become: true
   gather_facts: false
   vars_files:
-    - ../../vars/bootstrap-tls-vault-consul.yaml
-    - ../../vars/consul-acl-vars.yaml
+  - ../../vars/bootstrap-tls-vault-consul.yaml
+  - ../../vars/consul-acl-vars.yaml
   tasks:
-    - name: Create bastion agent-read token
-      community.hashi_vault.consul_acl_token:
-        name: bastion-agent-read-token
-        policies:
-          - "{{ bastion_agent_read_acl_policy }}"
-        state: present
-        management_token: "{{ lookup('file', consul_tmp_management_token_path) }}"
-      register: bastion_agent_read_token
+  - name: Load Consul management token
+    import_tasks: tasks/read_mgmt_token.yaml
 
-    - name: Write bastion agent-read token to file
-      copy:
-        content: "{{ bastion_agent_read_token.secret_id }}"
-        dest: "{{ bastion_agent_read_token_path }}"
-        owner: ansible
-        group: ansible
-        mode: '0600'
+  - name: Create bastion agent-read token
+    uri:
+      url: "{{ consul_api_addr }}/v1/acl/token"
+      method: PUT
+      body_format: json
+      body:
+        Description: "Bastion agent-read token"
+        Policies:
+        - Name: "{{ bastion_agent_read_acl_policy }}"
+      headers:
+        X-Consul-Token: "{{ consul_mgmt_token }}"
+      status_code: 200
+      validate_certs: true
+      client_cert: "{{ bastion_client_auth_to_consul_cert_path }}"
+      client_key: "{{ bastion_client_auth_to_consul_key_path }}"
+    register: bastion_agent_read_token_response
+    changed_when: true
+    no_log: true
+
+  - name: Persist bastion agent-read token on bastion primary
+    copy:
+      content: "{{ bastion_agent_read_token_response.json.SecretID }}"
+      dest: "{{ bastion_agent_read_token_path }}"
+      owner: ansible
+      group: ansible
+      mode: "0600"
+    no_log: true

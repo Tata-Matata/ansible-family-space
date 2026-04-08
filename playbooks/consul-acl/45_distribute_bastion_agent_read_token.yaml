@@ -1,14 +1,38 @@
-- hosts: bastion
+- name: Retrieve bastion agent-read token from bastion primary
+  hosts: bastion_primary
+  gather_facts: false
+  become: true
+  vars_files:
+  - ../../vars/bootstrap-tls-vault-consul.yaml
+  - ../../vars/consul-acl-vars.yaml
+  tasks:
+  - name: Read bastion agent-read token from file
+    slurp:
+      src: "{{ bastion_agent_read_token_path }}"
+    register: bastion_agent_read_token_file
+    no_log: true
+
+  - name: Set bastion agent-read token fact
+    set_fact:
+      bastion_agent_read_token: "{{ bastion_agent_read_token_file.content | b64decode | trim }}"
+    changed_when: false
+    no_log: true
+
+- name: Distribute bastion agent-read token to other bastion hosts
+  hosts: bastion:!bastion_primary
   become: true
   gather_facts: false
   vars_files:
-    - ../../vars/bootstrap-tls-vault-consul.yaml
-    - ../../vars/consul-acl-vars.yaml
+  - ../../vars/bootstrap-tls-vault-consul.yaml
+  - ../../vars/consul-acl-vars.yaml
+  vars:
+    bastion_agent_read_token: "{{ hostvars[groups['bastion_primary'][0]].bastion_agent_read_token }}"
   tasks:
-    - name: Copy bastion agent-read token from Bastion primary
-      ansible.builtin.copy:
-        src: "{{ bastion_agent_read_token_path }}"
-        dest: "{{ bastion_agent_read_token_path }}"
-        owner: ansible
-        group: ansible
-        mode: '0600'
+  - name: Install bastion agent-read token file
+    copy:
+      dest: "{{ bastion_agent_read_token_path }}"
+      owner: ansible
+      group: ansible
+      mode: "0600"
+      content: "{{ bastion_agent_read_token }}"
+    no_log: true
