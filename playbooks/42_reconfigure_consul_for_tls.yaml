@@ -96,7 +96,7 @@
   tasks:
     - name: Read bastion agent-read token from file
       slurp:
-        src: "{{ bastion_agent_read_token_path }}"
+        src: "{{ bastion_consul_read_token_path }}"
       register: bastion_agent_read_token_file
       no_log: true
       when: consul_acl_bootstrapped | default(false) | bool

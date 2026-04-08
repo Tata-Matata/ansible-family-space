@@ -8,6 +8,14 @@
   - name: Load Consul management token
     import_tasks: tasks/read_mgmt_token.yaml
 
+  - name: Ensure bastion Consul token folder exists
+    file:
+      path: "{{ bastion_consul_token_folder }}"
+      state: directory
+      owner: ansible
+      group: ansible
+      mode: "0755"
+
   - name: Create bastion agent-read token
     uri:
       url: "{{ consul_api_addr }}/v1/acl/token"
@@ -30,7 +38,7 @@
   - name: Persist bastion agent-read token on bastion primary
     copy:
       content: "{{ bastion_agent_read_token_response.json.SecretID }}"
-      dest: "{{ bastion_agent_read_token_path }}"
+      dest: "{{ bastion_consul_read_token_path }}"
       owner: ansible
       group: ansible
       mode: "0600"

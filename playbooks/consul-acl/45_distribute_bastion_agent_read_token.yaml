@@ -8,7 +8,7 @@
   tasks:
   - name: Read bastion agent-read token from file
     slurp:
-      src: "{{ bastion_agent_read_token_path }}"
+      src: "{{ bastion_consul_read_token_path }}"
     register: bastion_agent_read_token_file
     no_log: true
 
@@ -28,9 +28,17 @@
   vars:
     bastion_agent_read_token: "{{ hostvars[groups['bastion_primary'][0]].bastion_agent_read_token }}"
   tasks:
+  - name: Ensure bastion Consul token folder exists
+    file:
+      path: "{{ bastion_consul_token_folder }}"
+      state: directory
+      owner: ansible
+      group: ansible
+      mode: "0755"
+
   - name: Install bastion agent-read token file
     copy:
-      dest: "{{ bastion_agent_read_token_path }}"
+      dest: "{{ bastion_consul_read_token_path }}"
       owner: ansible
       group: ansible
       mode: "0600"

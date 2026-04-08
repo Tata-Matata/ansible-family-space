@@ -22,4 +22,5 @@ vault_consul_storage_config_path: "/etc/vault.d/consul.hcl"
 vault_consul_token_path: "/etc/vault.d/consul.token"
 vault_consul_systemd_override_path: "/etc/systemd/system/vault.service.d/consul-token.conf"
 # Bastion agent-read token path (for status checks from bastion)
-bastion_agent_read_token_path: "/etc/consul.d/agent.token"
+bastion_consul_token_folder: "/etc/consul.d/"
+bastion_consul_read_token_path: "{{ bastion_consul_token_folder }}agent.token"
