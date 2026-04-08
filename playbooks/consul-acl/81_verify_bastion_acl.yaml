@@ -1,14 +1,3 @@
-  - name: Read bastion agent-read token from file
-    slurp:
-      src: "{{ bastion_consul_read_token_path }}"
-    register: bastion_agent_read_token_file
-    no_log: true
-
-  - name: Set bastion agent-read token fact
-    set_fact:
-      bastion_agent_read_token: "{{ bastion_agent_read_token_file.content | b64decode | trim }}"
-    changed_when: false
-    no_log: true
 - name: Verify Consul ACLs from Bastion
   hosts: bastion_primary
   become: true
@@ -17,19 +6,49 @@
   - ../../vars/bootstrap-tls-vault-consul.yaml
   - ../../vars/consul-acl-vars.yaml
   tasks:
+  - name: Read bastion Consul read token from file
+    slurp:
+      src: "{{ bastion_consul_read_token_path }}"
+    register: bastion_consul_read_token_file
+    no_log: true
 
-  - name: Authenticated agent-read: can read Consul agent self
+  - name: Set bastion Consul read token fact
+    set_fact:
+      bastion_consul_read_token: "{{ bastion_consul_read_token_file.content | b64decode | trim }}"
+    changed_when: false
+    no_log: true
+
+  - name: Fail when bastion Consul read token cannot be parsed
+    fail:
+      msg: >-
+        Could not read token from {{ bastion_consul_read_token_path }}.
+        Expected raw token content in this file.
+    when: (bastion_consul_read_token | default('') | trim) == ''
+
+  - name: Authenticated agent-read can read Consul agent endpoint
+    include_role:
+      name: verify_https
+    vars:
+      verify_https_name: "Consul agent self from Bastion"
+      verify_https_url: "{{ consul_api_internal_health_addr }}"
+      verify_https_client_cert: "{{ bastion_client_auth_to_consul_cert_path }}"
+      verify_https_client_key: "{{ bastion_client_auth_to_consul_key_path }}"
+      verify_https_ca_cert: "{{ bastion_ca_cert_path }}"
+      verify_https_headers:
+        X-Consul-Token: "{{ bastion_consul_read_token }}"
+
+  - name: Bastion read token cannot write arbitrary KV
     uri:
-      url: "{{ consul_api_internal_health_addr }}"
-      method: GET
-      status_code: 200
+      url: "{{ consul_api_key_value_addr }}/random/acl-test"
+      method: PUT
+      body: "deny"
+      headers:
+        X-Consul-Token: "{{ bastion_consul_read_token }}"
+      status_code: [401, 403]
       validate_certs: true
       ca_path: "{{ bastion_ca_cert_path }}"
       client_cert: "{{ bastion_client_auth_to_consul_cert_path }}"
       client_key: "{{ bastion_client_auth_to_consul_key_path }}"
-      headers:
-        X-Consul-Token: "{{ bastion_agent_read_token }}"
-    register: bastion_agent_self
     changed_when: false
 
   - name: HTTP API is not reachable from Bastion
