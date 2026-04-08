@@ -63,15 +63,8 @@
     - name: Assert WireGuard runtime state
       assert:
         that:
-          - wireguard_service_enabled.stdout == 'enabled'
-          - wireguard_service_active.stdout == 'active'
-          - wireguard_show.stdout is search('interface: ' ~ wireguard_interface)
-          - wireguard_ip_addr.stdout is search(wireguard_server_ip)
-        fail_msg: WireGuard is installed but not fully active or correctly configured on bastion.
-
-    - name: Show WireGuard verification summary
-      debug:
-        msg:
-          - "WireGuard service: {{ wireguard_service_active.stdout }}"
-          - "WireGuard interface: {{ wireguard_interface }}"
-          - "WireGuard address: {{ wireguard_ip_addr.stdout | trim }}"
+          - "wireguard_service_enabled.stdout == 'enabled'"
+          - "wireguard_service_active.stdout == 'active'"
+          - "wireguard_show.stdout is search('interface: ' ~ wireguard_interface)"
+          - "wireguard_ip_addr.stdout is search(wireguard_server_ip)"
+        fail_msg: "WireGuard is installed but not fully active or correctly configured on bastion."
