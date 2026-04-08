@@ -2,31 +2,42 @@
 
 This playbook stream installs and bootstraps a private Keycloak instance on the `oidc` VM using the upstream Keycloak tarball, OpenJDK 21, a local PostgreSQL service, and a native systemd unit.
 
+It currently runs in two phases:
+
+1. Deploy Keycloak without TLS, bootstrap the realm, configure the Vault OIDC client, and verify basic readiness.
+2. Issue the private TLS certificate, re-deploy Keycloak in TLS mode, and verify the TLS-enabled service.
+
 ## Files
 
 - `playbooks/80-keycloak.yaml`
   Wrapper playbook that imports the split Keycloak playbooks.
 
-- `playbooks/keycloak/00_preflight.yaml`
+- `playbooks/keycloak/00-preflight.yaml`
   Validates required inventory and variables before installation.
 
-- `playbooks/keycloak/10_install_runtime.yaml`
+- `playbooks/keycloak/10-install-runtime.yaml`
   Installs OpenJDK, PostgreSQL, the Keycloak service user, and local directories.
 
-- `playbooks/keycloak/15_configure_tls.yaml`
-  Issues a private TLS certificate for Keycloak from the existing internal CA on Bastion and installs it on the OIDC VM.
-
-- `playbooks/keycloak/20_deploy_stack.yaml`
+- `playbooks/keycloak/20-deploy-stack.yaml`
   Downloads Keycloak, configures PostgreSQL, renders the Keycloak environment and systemd unit, and starts the services.
 
-- `playbooks/keycloak/30_bootstrap_realm.yaml`
+- `playbooks/keycloak/30-bootstrap-realm.yaml`
   Creates the Keycloak realm and the initial admin group.
 
-- `playbooks/keycloak/40_configure_vault_client.yaml`
+- `playbooks/keycloak/40-configure-vault-client.yaml`
   Creates the OIDC client for Vault and the groups claim mapper.
 
-- `playbooks/keycloak/90_verify.yaml`
-  Verifies readiness and prints the discovery URL details needed by Vault.
+- `playbooks/keycloak/50-verify.yaml`
+  Verifies non-TLS readiness and prints the discovery URL details needed by Vault.
+
+- `playbooks/keycloak/60-configure-tls.yaml`
+  Issues a private TLS certificate for Keycloak from the existing internal CA on Bastion, installs it on the OIDC VM, and refreshes CA trust.
+
+- `playbooks/keycloak/70-redeploy-stack-tls.yaml`
+  Re-deploys the Keycloak service configuration after TLS material is installed.
+
+- `playbooks/keycloak/80-verify-tls.yaml`
+  Verifies TLS-enabled readiness and discovery after Keycloak is restarted with HTTPS.
 
 ## Variables
 
@@ -76,7 +87,8 @@ ansible-playbook playbooks/80-keycloak.yaml --ask-vault-pass
 - Keycloak is private-only and intended to be reached over the private network or VPN.
 - The existing internal CA on Bastion has already been created, because Keycloak TLS reuses it to issue the OIDC server certificate.
 - The target VM provides the `{{ keycloak_java_package | default('openjdk-21-jre-headless') }}` package in its apt repositories.
-- Keycloak serves browser traffic over private HTTPS on port `8443` and keeps localhost HTTP on port `8080` for local admin CLI/bootstrap tasks.
+- Before the TLS phase, Keycloak serves browser and admin CLI traffic over HTTP on port `8080`.
+- After the TLS phase, Keycloak serves browser and admin CLI traffic over private HTTPS on port `8443`, while the management endpoint remains on port `9000`.
 - Vault OIDC integration will later consume the Keycloak discovery URL printed by the verify step.
 
 ## Follow-up

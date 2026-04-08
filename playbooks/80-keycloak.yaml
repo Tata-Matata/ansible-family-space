@@ -1,15 +1,19 @@
 ---
 # 00: validate inventory and required vars
 # 10: install Java, PostgreSQL, and service prerequisites on the OIDC VM
+# 20: deploy Keycloak runtime, config, and systemd unit
+# 30: bootstrap realm and admin group without TLS
+# 40: configure the Vault OIDC client without TLS
+# 50: verify non-TLS Keycloak service readiness and discovery
 # 60: issue and distribute a private TLS certificate for Keycloak
 # 70: re-deploy Keycloak stack and systemd configuration
-# 30: bootstrap realm and admin group
-# 40: configure the Vault OIDC client
 # 80: verify TLS-enabled Keycloak service readiness and discovery
 - import_playbook: keycloak/00-preflight.yaml
 - import_playbook: keycloak/10-install-runtime.yaml
-- import_playbook: keycloak/60-configure-tls.yaml
-- import_playbook: keycloak/70-redeploy-stack-tls.yaml
+- import_playbook: keycloak/20-deploy-stack.yaml
 - import_playbook: keycloak/30-bootstrap-realm.yaml
 - import_playbook: keycloak/40-configure-vault-client.yaml
+- import_playbook: keycloak/50-verify.yaml
+- import_playbook: keycloak/60-configure-tls.yaml
+- import_playbook: keycloak/70-redeploy-stack-tls.yaml
 - import_playbook: keycloak/80-verify-tls.yaml

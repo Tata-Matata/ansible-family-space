@@ -23,6 +23,7 @@
 
     - name: Authenticate Keycloak admin CLI
       become_user: "{{ keycloak_user }}"
+      environment: "{{ keycloak_admin_cli_environment }}"
       command:
         argv:
           - "{{ keycloak_home }}/bin/kcadm.sh"
@@ -41,6 +42,7 @@
 
     - name: Check Keycloak realm
       become_user: "{{ keycloak_user }}"
+      environment: "{{ keycloak_admin_cli_environment }}"
       command:
         argv:
           - "{{ keycloak_home }}/bin/kcadm.sh"
@@ -53,6 +55,7 @@
 
     - name: Create Keycloak realm
       become_user: "{{ keycloak_user }}"
+      environment: "{{ keycloak_admin_cli_environment }}"
       command:
         argv:
           - "{{ keycloak_home }}/bin/kcadm.sh"
@@ -68,6 +71,7 @@
 
     - name: Query Keycloak admin group
       become_user: "{{ keycloak_user }}"
+      environment: "{{ keycloak_admin_cli_environment }}"
       command:
         argv:
           - "{{ keycloak_home }}/bin/kcadm.sh"
@@ -88,6 +92,7 @@
 
     - name: Create Keycloak admin group
       become_user: "{{ keycloak_user }}"
+      environment: "{{ keycloak_admin_cli_environment }}"
       command:
         argv:
           - "{{ keycloak_home }}/bin/kcadm.sh"

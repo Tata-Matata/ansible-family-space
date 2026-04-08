@@ -145,10 +145,35 @@
         group: root
         mode: "0644"
 
-    - name: Update system CA certificates
-      command: update-ca-certificates
-      changed_when: "'0 added' not in keycloak_update_ca_result.stdout"
+    - name: Refresh system CA certificates
+      command: update-ca-certificates -f
       register: keycloak_update_ca_result
+      changed_when: false
+
+    - name: Check Java CA refresh hook presence
+      stat:
+        path: /var/lib/dpkg/info/ca-certificates-java.postinst
+      register: keycloak_ca_certificates_java_postinst
+      changed_when: false
+
+    - name: Refresh Java truststore from system CA certificates
+      command: /var/lib/dpkg/info/ca-certificates-java.postinst configure
+      when: keycloak_ca_certificates_java_postinst.stat.exists
+      register: keycloak_java_truststore_refresh
+      changed_when: false
+
+    - name: Check Keycloak Java truststore
+      stat:
+        path: "{{ keycloak_java_truststore_path }}"
+      register: keycloak_java_truststore
+      changed_when: false
+
+    - name: Fail when Keycloak Java truststore is missing
+      fail:
+        msg: >-
+          Java truststore {{ keycloak_java_truststore_path }} is missing after refreshing CA certificates.
+          Install ca-certificates-java and rerun the Keycloak TLS playbook.
+      when: not keycloak_java_truststore.stat.exists
 
     - name: Assert Keycloak TLS files exist on OIDC host
       include_role:

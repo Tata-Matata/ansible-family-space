@@ -36,6 +36,12 @@ keycloak_postgres_db: keycloak
 keycloak_postgres_user: keycloak
 keycloak_admin_user: admin
 keycloak_healthcheck_url: "{{ keycloak_management_scheme }}://127.0.0.1:{{ keycloak_management_port }}/health/ready"
+keycloak_java_truststore_path: /etc/ssl/certs/java/cacerts
+keycloak_java_truststore_password: changeit
+keycloak_admin_cli_environment:
+  JAVA_TOOL_OPTIONS: >-
+    -Djavax.net.ssl.trustStore={{ keycloak_java_truststore_path }}
+    -Djavax.net.ssl.trustStorePassword={{ keycloak_java_truststore_password }}
 keycloak_vault_client_id: vault
 keycloak_vault_redirect_uris:
   - http://localhost:8250/oidc/callback

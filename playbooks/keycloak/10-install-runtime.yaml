@@ -16,6 +16,13 @@
         state: present
         update_cache: true
 
+    - name: Install Keycloak CA trust packages
+      apt:
+        name:
+          - ca-certificates
+          - ca-certificates-java
+        state: present
+
     - name: Install PostgreSQL package
       apt:
         name: postgresql
