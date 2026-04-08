@@ -14,8 +14,8 @@
         url: "{{ keycloak_healthcheck_url }}"
         method: GET
         status_code: 200
-        ca_path: "{{ keycloak_ca_cert_path if keycloak_tls_enabled else omit }}"
-        validate_certs: "{{ keycloak_tls_enabled }}"
+        ca_path: "{{ keycloak_ca_cert_path if (keycloak_tls_enabled | default(true) | bool) else omit }}"
+        validate_certs: "{{ keycloak_tls_enabled | default(true) | bool }}"
       register: keycloak_health
       retries: 30
       delay: 5

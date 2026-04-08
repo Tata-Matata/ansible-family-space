@@ -16,7 +16,7 @@
   tasks:
     - name: End TLS issuance play when Keycloak TLS is disabled
       meta: end_play
-      when: not keycloak_tls_enabled
+      when: not (keycloak_tls_enabled | default(true) | bool)
 
     - name: Ensure bootstrap CA certificate exists on Bastion
       stat:
@@ -103,7 +103,7 @@
   tasks:
     - name: End TLS installation play when Keycloak TLS is disabled
       meta: end_play
-      when: not keycloak_tls_enabled
+      when: not (keycloak_tls_enabled | default(true) | bool)
 
     - name: Ensure Keycloak TLS directory exists
       file:

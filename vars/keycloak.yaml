@@ -1,8 +1,7 @@
-keycloak_tls_enabled: true
 keycloak_http_port: 8080
 keycloak_https_port: 8443
-keycloak_scheme: "{{ 'https' if keycloak_tls_enabled else 'http' }}"
-keycloak_port: "{{ keycloak_https_port if keycloak_tls_enabled else keycloak_http_port }}"
+keycloak_scheme: "{{ 'https' if (keycloak_tls_enabled | default(true) | bool) else 'http' }}"
+keycloak_port: "{{ keycloak_https_port if (keycloak_tls_enabled | default(true) | bool) else keycloak_http_port }}"
 keycloak_base_url: "{{ keycloak_scheme }}://{{ oidc_service_name }}:{{ keycloak_port }}"
 keycloak_realm_name: infra
 keycloak_admin_group_name: infra-admins
@@ -31,7 +30,7 @@ keycloak_db_port: 5432
 keycloak_db_url: "jdbc:postgresql://{{ keycloak_db_host }}:{{ keycloak_db_port }}/{{ keycloak_postgres_db }}"
 keycloak_admin_cli_server_url: "{{ keycloak_scheme }}://127.0.0.1:{{ keycloak_port }}"
 keycloak_management_port: 9000
-keycloak_management_scheme: "{{ 'https' if keycloak_tls_enabled else 'http' }}"
+keycloak_management_scheme: "{{ 'https' if (keycloak_tls_enabled | default(true) | bool) else 'http' }}"
 keycloak_postgres_db: keycloak
 keycloak_postgres_user: keycloak
 keycloak_admin_user: admin

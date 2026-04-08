@@ -1,2 +1,4 @@
 ---
 - import_playbook: 20-deploy-stack.yaml
+  vars:
+    keycloak_tls_enabled: true
