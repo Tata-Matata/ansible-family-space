@@ -53,8 +53,12 @@
     client_cert: "{{ consul_server_cert_path if consul_tls_enabled else omit }}"
     client_key: "{{ consul_server_key_path if consul_tls_enabled else omit }}"
     headers: "{{ {'X-Consul-Token': consul_agent_token} if consul_healthcheck_use_acl_token | bool else omit }}"
+  register: consul_agent_health
   retries: 30
   delay: 2
+  until:
+  - consul_agent_health is succeeded
+  - consul_agent_health.status == 200
   changed_when: false
 
 - name: Wait for Consul leader election (ONLY on Consul servers)
