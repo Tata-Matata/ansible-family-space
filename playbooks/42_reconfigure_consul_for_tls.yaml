@@ -30,6 +30,9 @@
   gather_facts: false
   vars_files:
     - ../vars/bootstrap-tls-vault-consul.yaml
+    - ../vars/consul-acl-vars.yaml
+  vars:
+    consul_healthcheck_use_acl_token: "{{ consul_acl_bootstrapped | default(false) | bool }}"
   tasks:
   - name: Stop Consul
     systemd:
@@ -89,18 +92,21 @@
   gather_facts: false
   vars_files:
     - ../vars/bootstrap-tls-vault-consul.yaml
+    - ../vars/consul-acl-vars.yaml
   tasks:
     - name: Read bastion agent-read token from file
       slurp:
         src: "{{ bastion_agent_read_token_path }}"
       register: bastion_agent_read_token_file
       no_log: true
+      when: consul_acl_bootstrapped | default(false) | bool
 
     - name: Set bastion agent-read token fact
       set_fact:
         bastion_agent_read_token: "{{ bastion_agent_read_token_file.content | b64decode | trim }}"
       changed_when: false
       no_log: true
+      when: consul_acl_bootstrapped | default(false) | bool
 
     - name: Verify Consul HTTPS API from Bastion
       include_role:
@@ -112,6 +118,5 @@
         verify_https_client_cert: "{{ bastion_client_auth_to_consul_cert_path }}"
         verify_https_client_key: "{{ bastion_client_auth_to_consul_key_path }}"
         # CA is now installed in system trust store, no need to specify
-        verify_https_headers:
-          X-Consul-Token: "{{ bastion_agent_read_token }}"
+        verify_https_headers: "{{ {'X-Consul-Token': bastion_agent_read_token} if consul_acl_bootstrapped | default(false) | bool else omit }}"
 

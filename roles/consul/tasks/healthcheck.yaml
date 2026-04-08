@@ -4,6 +4,42 @@
 # may briefly return empty or 500 while Raft bootstraps.
 # We first wait for the agent API, then for leader election
 # CA certificate is installed in system trust store, so validate_certs works automatically
+
+# Optionally use the local agent token after ACL bootstrap.
+- name: Check if Consul agent token file exists
+  stat:
+    path: "{{ consul_server_agent_token_raw_path }}"
+  register: consul_agent_token_file_stat
+  changed_when: false
+  when: consul_healthcheck_use_acl_token | bool
+
+- name: Fail when Consul healthcheck requires token but token file is missing
+  fail:
+    msg: >-
+      Consul healthcheck is configured to use an ACL token, but the token file
+      {{ consul_server_agent_token_raw_path }} is missing.
+  when:
+    - consul_healthcheck_use_acl_token | bool
+    - not consul_agent_token_file_stat.stat.exists
+
+- name: Read Consul agent token from file (if present)
+  slurp:
+    src: "{{ consul_server_agent_token_raw_path }}"
+  register: consul_agent_token_file
+  when:
+    - consul_healthcheck_use_acl_token | bool
+    - consul_agent_token_file_stat.stat.exists
+  no_log: true
+
+- name: Set Consul agent token fact (if present)
+  set_fact:
+    consul_agent_token: "{{ consul_agent_token_file.content | b64decode | trim }}"
+  when:
+    - consul_healthcheck_use_acl_token | bool
+    - consul_agent_token_file_stat.stat.exists
+  changed_when: false
+  no_log: true
+
 - name: Wait for Consul agent API to be reachable
   uri:
     url: "{{ consul_api_internal_health_addr }}"
@@ -16,6 +52,7 @@
     # in this case, consul server keys are used as client keys for simplicity
     client_cert: "{{ consul_server_cert_path if consul_tls_enabled else omit }}"
     client_key: "{{ consul_server_key_path if consul_tls_enabled else omit }}"
+    headers: "{{ {'X-Consul-Token': consul_agent_token} if consul_healthcheck_use_acl_token | bool else omit }}"
   retries: 30
   delay: 2
   changed_when: false
@@ -33,6 +70,7 @@
     # in this case, consul server keys are used as client keys for simplicity
     client_cert: "{{ consul_server_cert_path if consul_tls_enabled else omit }}"
     client_key: "{{ consul_server_key_path if consul_tls_enabled else omit }}"
+    headers: "{{ {'X-Consul-Token': consul_agent_token} if consul_healthcheck_use_acl_token | bool else omit }}"
   register: consul_leader
   retries: 30
   delay: 2
