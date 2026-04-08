@@ -30,7 +30,7 @@
             owner: "{{ keycloak_user }}"
             group: "{{ keycloak_group }}"
             mode: "0600"
-      when: keycloak_tls_enabled
+      when: keycloak_tls_enabled | bool
 
     - name: Ensure PostgreSQL service is enabled and started
       systemd:

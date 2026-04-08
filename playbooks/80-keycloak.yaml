@@ -11,9 +11,23 @@
 - import_playbook: keycloak/00-preflight.yaml
 - import_playbook: keycloak/10-install-runtime.yaml
 - import_playbook: keycloak/20-deploy-stack.yaml
+  vars:
+    keycloak_tls_enabled: false
 - import_playbook: keycloak/30-bootstrap-realm.yaml
+  vars:
+    keycloak_tls_enabled: false
 - import_playbook: keycloak/40-configure-vault-client.yaml
+  vars:
+    keycloak_tls_enabled: false
 - import_playbook: keycloak/50-verify.yaml
+  vars:
+    keycloak_tls_enabled: false
 - import_playbook: keycloak/60-configure-tls.yaml
+  vars:
+    keycloak_tls_enabled: true
 - import_playbook: keycloak/70-redeploy-stack-tls.yaml
+  vars:
+    keycloak_tls_enabled: true
 - import_playbook: keycloak/80-verify-tls.yaml
+  vars:
+    keycloak_tls_enabled: true
