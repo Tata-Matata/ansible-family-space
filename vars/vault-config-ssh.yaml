@@ -10,9 +10,9 @@ vault_ssh_admin_ttl: "1h"
 vault_ssh_admin_policy_name: "admin-ssh"
 vault_ssh_admin_policy_file: "/var/lib/vault-state/admin-ssh-policy.hcl"
 vault_ssh_admin_policy_hcl: |
-	path "{{ vault_ssh_secrets_mount_path }}/sign/{{ vault_ssh_admin_role_name }}" {
-		capabilities = ["update"]
-	}
+  path "{{ vault_ssh_secrets_mount_path }}/sign/{{ vault_ssh_admin_role_name }}" {
+    capabilities = ["update"]
+  }
 vault_ssh_admin_token_path_bastion: "/home/ansible/.vault/admin-ssh.token"
 vault_ssh_admin_test_private_key_path: "/home/ansible/.ssh/id_ed25519_vault_admin"
 vault_ssh_admin_test_public_key_path: "{{ vault_ssh_admin_test_private_key_path }}.pub"
