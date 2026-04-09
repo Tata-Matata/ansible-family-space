@@ -99,8 +99,8 @@
           - "Generate a local SSH key pair on the desktop if needed."
           - "Sign the public key with: vault write -field=signed_key {{ vault_ssh_secrets_mount_path }}/sign/{{ vault_human_ssh_role_name }} public_key=@$HOME/.ssh/id_ed25519.pub > $HOME/.ssh/id_ed25519-cert.pub"
 
-- name: Verify trusted user CA configuration on internal hosts
-  hosts: vault:consul:bastion
+- name: Verify trusted user CA configuration on all hosts
+  hosts: all
   become: true
   gather_facts: false
 
