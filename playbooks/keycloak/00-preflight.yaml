@@ -7,8 +7,8 @@
   gather_facts: false
 
   vars_files:
-    - ../../vars/keycloak.yaml
-    - ../../vars/keycloak-secrets.yaml
+    - ../../vars/vault-human-auth-with-keycloak.yaml
+    - ../../vars/vault-keycloak-secrets.yaml
 
   tasks:
     - name: Ensure OIDC inventory group is populated
@@ -24,7 +24,7 @@
           - keycloak_postgres_password | length > 0
           - keycloak_admin_password | length > 0
           - keycloak_vault_client_secret | length > 0
-        fail_msg: Fill keycloak_postgres_password, keycloak_admin_password, and keycloak_vault_client_secret in vars/keycloak-secrets.yaml and encrypt it with Ansible Vault before running 80-keycloak.yaml.
+        fail_msg: Fill keycloak_postgres_password, keycloak_admin_password, and keycloak_vault_client_secret in vars/vault-keycloak-secrets.yaml and encrypt it with Ansible Vault before running 80-keycloak.yaml.
 
     - name: Validate Keycloak service settings
       assert:
@@ -38,4 +38,4 @@
           - keycloak_java_package | length > 0
           - keycloak_realm_name | length > 0
           - keycloak_vault_client_id | length > 0
-        fail_msg: Review vars/keycloak.yaml and provide the required Keycloak service, Java, and realm settings.
+        fail_msg: Review vars/vault-human-auth-with-keycloak.yaml and provide the required Keycloak service, Java, and realm settings.

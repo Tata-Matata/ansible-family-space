@@ -15,7 +15,7 @@
     - ../vars/vault-init-unseal-config.yaml
     - ../vars/bootstrap-tls-vault-consul.yaml
     - ../vars/vault-config-ssh.yaml
-    - ../vars/vault-human-auth.yaml
+    - ../vars/vault-human-auth-with-keycloak.yaml
     - ../vars/vault-ansible-token.yaml
 
   environment: "{{ vault_cli_env }}"

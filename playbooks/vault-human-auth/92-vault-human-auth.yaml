@@ -1,6 +1,6 @@
 ---
 - name: Configure Vault human OIDC auth
-  hosts: "{{ groups['vault'][0] }}"
+  hosts: vault[0]
   become: true
 
   vars:
@@ -15,7 +15,8 @@
     - ../../vars/vault-init-unseal-config.yaml
     - ../../vars/bootstrap-tls-vault-consul.yaml
     - ../../vars/vault-config-ssh.yaml
-    - ../../vars/vault-human-auth.yaml
+    - ../../vars/vault-human-auth-with-keycloak.yaml
+    - ../../vars/vault-keycloak-secrets.yaml
     - ../../vars/vault-ansible-token.yaml
 
   environment: "{{ vault_cli_env }}"
@@ -34,9 +35,9 @@
           - vault_human_oidc_role_name | length > 0
           - vault_human_oidc_discovery_url | length > 0
           - vault_human_oidc_client_id | length > 0
-          - vault_human_oidc_client_secret | length > 0
+          - (vault_human_oidc_client_secret | default('')) | length > 0
           - vault_human_oidc_allowed_redirect_uris | length > 0
-        fail_msg: Update vars/vault-human-auth.yaml with your OIDC provider details before running this playbook.
+        fail_msg: Review vars/vault-human-auth-with-keycloak.yaml, then set keycloak_vault_client_secret in vars/vault-keycloak-secrets.yaml and encrypt that file with Ansible Vault before running this playbook. vault_human_oidc_client_secret defaults to the same value unless you override it explicitly.
 
     - name: Check enabled Vault auth methods
       command:
@@ -77,18 +78,12 @@
       register: vault_human_oidc_config_payload_file
 
     - name: Write Vault human OIDC config payload
-      copy:
+      template:
+        src: templates/vault-human-oidc-config.json.j2
         dest: "{{ vault_human_oidc_config_payload_file.path }}"
         owner: root
         group: root
         mode: "0600"
-        content: |
-          {{ {
-            'oidc_discovery_url': vault_human_oidc_discovery_url,
-            'oidc_client_id': vault_human_oidc_client_id,
-            'oidc_client_secret': vault_human_oidc_client_secret,
-            'default_role': vault_human_oidc_role_name
-          } | to_nice_json }}
       no_log: true
 
     - name: Configure Vault human OIDC auth backend

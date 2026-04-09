@@ -105,7 +105,7 @@
   become: true
   vars_files:
     - ../vars/bootstrap-tls-vault-consul.yaml
-    - ../vars/keycloak.yaml
+    - ../vars/vault-human-auth-with-keycloak.yaml
   tasks:
     - name: Skip unless cleanup_nodes=yes
       when: (cleanup_nodes | default('no')) != 'yes'

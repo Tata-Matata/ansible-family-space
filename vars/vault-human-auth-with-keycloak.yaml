@@ -1,0 +1,81 @@
+keycloak_http_port: 8080
+keycloak_https_port: 8443
+keycloak_scheme: "{{ 'https' if (keycloak_tls_enabled | default(true) | bool) else 'http' }}"
+keycloak_port: "{{ keycloak_https_port if (keycloak_tls_enabled | default(true) | bool) else keycloak_http_port }}"
+keycloak_base_url: "{{ keycloak_scheme }}://{{ oidc_service_name }}:{{ keycloak_port }}"
+keycloak_realm_name: infra
+keycloak_admin_group_name: infra-admins
+keycloak_version: 26.1.0
+keycloak_java_package: openjdk-21-jre-headless
+keycloak_archive_url: "https://github.com/keycloak/keycloak/releases/download/{{ keycloak_version }}/keycloak-{{ keycloak_version }}.tar.gz"
+keycloak_archive_path: "/tmp/keycloak-{{ keycloak_version }}.tar.gz"
+keycloak_install_root: /opt/keycloak
+keycloak_install_dir: "{{ keycloak_install_root }}/keycloak-{{ keycloak_version }}"
+keycloak_home: "{{ keycloak_install_root }}/current"
+keycloak_config_dir: /etc/keycloak
+keycloak_env_file: "{{ keycloak_config_dir }}/keycloak.env"
+keycloak_tls_dir: "{{ keycloak_config_dir }}/tls"
+keycloak_server_cert_file: oidc-server.pem
+keycloak_server_key_file: oidc-server.key
+keycloak_ca_cert_file: ca.pem
+keycloak_server_cert_path: "{{ keycloak_tls_dir }}/{{ keycloak_server_cert_file }}"
+keycloak_server_key_path: "{{ keycloak_tls_dir }}/{{ keycloak_server_key_file }}"
+keycloak_ca_cert_path: "{{ keycloak_tls_dir }}/{{ keycloak_ca_cert_file }}"
+keycloak_data_dir: /var/lib/keycloak
+keycloak_log_dir: /var/log/keycloak
+keycloak_user: keycloak
+keycloak_group: keycloak
+keycloak_db_host: 127.0.0.1
+keycloak_db_port: 5432
+keycloak_db_url: "jdbc:postgresql://{{ keycloak_db_host }}:{{ keycloak_db_port }}/{{ keycloak_postgres_db }}"
+keycloak_admin_cli_server_url: "{{ keycloak_scheme }}://127.0.0.1:{{ keycloak_port }}"
+keycloak_management_port: 9000
+keycloak_management_scheme: "{{ 'https' if (keycloak_tls_enabled | default(true) | bool) else 'http' }}"
+keycloak_postgres_db: keycloak
+keycloak_postgres_user: keycloak
+keycloak_admin_user: admin
+keycloak_healthcheck_url: "{{ keycloak_management_scheme }}://127.0.0.1:{{ keycloak_management_port }}/health/ready"
+keycloak_java_truststore_path: /etc/ssl/certs/java/cacerts
+keycloak_java_truststore_password: changeit
+keycloak_admin_cli_environment:
+  JAVA_TOOL_OPTIONS: >-
+    -Djavax.net.ssl.trustStore={{ keycloak_java_truststore_path }}
+    -Djavax.net.ssl.trustStorePassword={{ keycloak_java_truststore_password }}
+keycloak_vault_client_id: vault
+keycloak_vault_redirect_uris:
+  - http://localhost:8250/oidc/callback
+  - http://127.0.0.1:8250/oidc/callback
+keycloak_vault_web_origins:
+  - "+"
+keycloak_vault_groups_claim_name: groups
+
+## Vault interaction with Keycloak
+
+vault_human_auth_mount_path: oidc
+vault_human_oidc_role_name: human-admin
+vault_human_oidc_discovery_url: "{{ keycloak_base_url }}/realms/{{ keycloak_realm_name }}"
+vault_human_oidc_client_id: "{{ keycloak_vault_client_id }}"
+vault_human_oidc_user_claim: email
+vault_human_oidc_groups_claim: groups
+vault_human_oidc_scopes:
+  - openid
+  - profile
+  - email
+vault_human_oidc_allowed_redirect_uris:
+  - http://localhost:8250/oidc/callback
+  - http://127.0.0.1:8250/oidc/callback
+vault_human_oidc_required_groups:
+  - infra-admins
+vault_human_policy_name: human-ssh
+vault_human_policy_file: /var/lib/vault-state/human-ssh-policy.hcl
+vault_human_policy_hcl: |
+  path "{{ vault_ssh_secrets_mount_path }}/sign/{{ vault_human_ssh_role_name }}" {
+    capabilities = ["update"]
+  }
+vault_human_ssh_role_name: human-admin
+vault_human_ssh_allowed_users: ansible
+vault_human_ssh_default_user: ansible
+vault_human_ssh_ttl: 30m
+vault_human_ssh_max_ttl: 1h
+vault_human_token_ttl: 1h
+vault_human_token_max_ttl: 4h

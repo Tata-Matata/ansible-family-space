@@ -43,11 +43,11 @@ It currently runs in two phases:
 
 Non-secret configuration lives in:
 
-- `vars/keycloak.yaml`
+- `vars/vault-human-auth-with-keycloak.yaml`
 
 Secrets live in:
 
-- `vars/keycloak-secrets.yaml`
+- `vars/vault-keycloak-secrets.yaml`
 
 Required secrets:
 
@@ -55,26 +55,30 @@ Required secrets:
 - `keycloak_admin_password`
 - `keycloak_vault_client_secret`
 
+`vault_human_oidc_client_secret` is also available in the same file and defaults to `keycloak_vault_client_secret`. Override it only if Vault should use a different client secret than the one configured on the Keycloak side.
+
 ## Encrypt Secrets With Ansible Vault
 
-1. Edit `vars/keycloak-secrets.yaml` and set real values.
+1. Edit `vars/vault-keycloak-secrets.yaml` and set real values.
 2. Encrypt the file:
 
 ```bash
 cd /ansible/project/dir/root
-ansible-vault encrypt vars/keycloak-secrets.yaml
+ansible-vault encrypt vars/vault-keycloak-secrets.yaml
 ```
 
 3. Edit later with:
 
 ```bash
 cd /home/tati/projects/infra/ansible
-ansible-vault edit vars/keycloak-secrets.yaml
+ansible-vault edit vars/vault-keycloak-secrets.yaml
 ```
+
+Manual migration is required here. This repo update creates the new file path and variable layout, but it cannot re-encrypt your existing secrets automatically because that requires your Ansible Vault password. Copy the real values out of your current encrypted `vars/keycloak-secrets.yaml`, place them into `vars/vault-keycloak-secrets.yaml`, and then encrypt the new file with Ansible Vault. By default, `vault_human_oidc_client_secret` reuses `keycloak_vault_client_secret`, so you only need to set it separately if Vault should use a different client secret.
 
 ## Run
 
-Run the wrapper playbook and let Ansible prompt for the Vault password used to decrypt `vars/keycloak-secrets.yaml`:
+Run the wrapper playbook and let Ansible prompt for the Vault password used to decrypt `vars/vault-keycloak-secrets.yaml`:
 
 ```bash
 cd /home/tati/projects/infra/ansible
@@ -95,6 +99,7 @@ ansible-playbook playbooks/80-keycloak.yaml --ask-vault-pass
 
 After Keycloak is deployed and verified:
 
-1. Update `vars/vault-human-auth.yaml` with the Keycloak discovery URL, client ID, and client secret.
-2. Run the Vault human-auth playbooks through `playbooks/90-wireguard.yaml` or the split playbooks under `playbooks/wireguard/`.
-3. Trust the internal CA certificate on the browser clients that will reach the private OIDC service over WireGuard.
+1. Review `vars/vault-human-auth-with-keycloak.yaml` for merged Keycloak and Vault human-auth settings.
+2. Populate and encrypt `vars/vault-keycloak-secrets.yaml`. By default, `vault_human_oidc_client_secret` reuses `keycloak_vault_client_secret`.
+3. Run the Vault human-auth playbooks through `playbooks/85-vault-human-auth.yaml`.
+4. Trust the internal CA certificate on the browser clients that will reach the private OIDC service over WireGuard.
