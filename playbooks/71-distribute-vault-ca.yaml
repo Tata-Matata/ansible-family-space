@@ -1,6 +1,6 @@
 ---
 - name: Read Vault SSH CA public key from Vault host
-  hosts: "{{ groups['vault'][0] }}"
+  hosts: vault[0]
   become: true
   gather_facts: false
 

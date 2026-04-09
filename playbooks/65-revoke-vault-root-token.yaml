@@ -1,0 +1,76 @@
+---
+- name: Revoke the initial Vault root token after bootstrap
+  hosts: vault[0]
+  become: true
+  gather_facts: false
+
+  vars:
+    vault_cli_env:
+      VAULT_ADDR: "{{ vault_api_addr }}"
+      VAULT_CLIENT_CERT: "{{ vault_server_cert_path }}"
+      VAULT_CLIENT_KEY: "{{ vault_server_key_path }}"
+      VAULT_CACERT: "{{ vault_ca_cert_path }}"
+    vault_root_cli_auth_env: "{{ vault_cli_env | combine({'VAULT_TOKEN': vault_root_token}) }}"
+    vault_ansible_cli_auth_env: "{{ vault_cli_env | combine({'VAULT_TOKEN': vault_ansible_token}) }}"
+
+  vars_files:
+    - ../vars/vault-init-unseal-config.yaml
+    - ../vars/bootstrap-tls-vault-consul.yaml
+    - ../vars/vault-ansible-token.yaml
+
+  environment: "{{ vault_cli_env }}"
+
+  tasks:
+    - name: Load Vault init data and root token
+      import_tasks: ../tasks/vault/read-init-token.yaml
+
+    - name: Load Vault Ansible automation token
+      import_tasks: ../tasks/vault/read-ansible-token.yaml
+
+    - name: Check Vault is initialized and unsealed
+      import_tasks: ../tasks/vault/assert-initialized-unsealed.yaml
+
+    - name: Verify Vault Ansible automation token works
+      command:
+        argv:
+          - vault
+          - token
+          - lookup
+          - -address={{ vault_api_addr }}
+          - -format=json
+      register: vault_ansible_token_lookup
+      changed_when: false
+      environment: "{{ vault_ansible_cli_auth_env }}"
+      no_log: true
+
+    - name: Verify root token works before revocation
+      command:
+        argv:
+          - vault
+          - token
+          - lookup
+          - -address={{ vault_api_addr }}
+          - -format=json
+      register: vault_root_token_lookup
+      changed_when: false
+      environment: "{{ vault_root_cli_auth_env }}"
+      no_log: true
+
+    - name: Revoke initial Vault root token
+      command:
+        argv:
+          - vault
+          - token
+          - revoke
+          - -self
+          - -address={{ vault_api_addr }}
+      register: vault_root_token_revoke
+      changed_when: vault_root_token_revoke.rc == 0
+      environment: "{{ vault_root_cli_auth_env }}"
+      no_log: true
+
+    - name: Show root token revocation status
+      debug:
+        msg:
+          - "Vault root token revoked: yes"
+          - "Vault Ansible token remains at: {{ vault_ansible_token_file }}"

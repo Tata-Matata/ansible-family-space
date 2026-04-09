@@ -9,19 +9,20 @@
       VAULT_CLIENT_CERT: "{{ vault_server_cert_path }}"
       VAULT_CLIENT_KEY: "{{ vault_server_key_path }}"
       VAULT_CACERT: "{{ vault_ca_cert_path }}"
-    vault_cli_auth_env: "{{ vault_cli_env | combine({'VAULT_TOKEN': vault_root_token}) }}"
+    vault_cli_auth_env: "{{ vault_cli_env | combine({'VAULT_TOKEN': vault_ansible_token}) }}"
 
   vars_files:
     - ../../vars/vault-init-unseal-config.yaml
     - ../../vars/bootstrap-tls-vault-consul.yaml
     - ../../vars/vault-config-ssh.yaml
     - ../../vars/vault-human-auth.yaml
+    - ../../vars/vault-ansible-token.yaml
 
   environment: "{{ vault_cli_env }}"
 
   tasks:
-    - name: Load Vault init data and root token
-      import_tasks: ../../tasks/vault/read-init-token.yaml
+    - name: Load Vault Ansible automation token
+      import_tasks: ../../tasks/vault/read-ansible-token.yaml
 
     - name: Check Vault is initialized and unsealed
       import_tasks: ../../tasks/vault/assert-initialized-unsealed.yaml

@@ -1,0 +1,35 @@
+path "sys/mounts" {
+  capabilities = ["read"]
+}
+
+path "sys/mounts/{{ vault_ssh_secrets_mount_path }}" {
+  capabilities = ["create", "read", "update", "sudo"]
+}
+
+path "{{ vault_ssh_ca_config_path }}" {
+  capabilities = ["create", "read", "update"]
+}
+
+path "{{ vault_ssh_secrets_mount_path }}/roles/{{ vault_human_ssh_role_name }}" {
+  capabilities = ["create", "read", "update"]
+}
+
+path "sys/auth" {
+  capabilities = ["read"]
+}
+
+path "sys/auth/{{ vault_human_auth_mount_path }}" {
+  capabilities = ["create", "read", "update", "sudo"]
+}
+
+path "auth/{{ vault_human_auth_mount_path }}/config" {
+  capabilities = ["read", "update"]
+}
+
+path "auth/{{ vault_human_auth_mount_path }}/role/{{ vault_human_oidc_role_name }}" {
+  capabilities = ["create", "read", "update"]
+}
+
+path "sys/policies/acl/{{ vault_human_policy_name }}" {
+  capabilities = ["create", "read", "update"]
+}

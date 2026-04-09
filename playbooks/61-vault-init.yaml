@@ -1,6 +1,6 @@
 ---
 - name: Initialize Vault (if not already initialized)
-  hosts: "{{ groups['vault'][0] }}"
+  hosts: vault[0]
   become: true
 
   vars_files:

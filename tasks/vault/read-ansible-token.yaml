@@ -1,0 +1,19 @@
+- name: Ensure Vault Ansible token file exists
+  stat:
+    path: "{{ vault_ansible_token_file }}"
+  register: vault_ansible_token_file_stat
+
+- name: Fail if Vault Ansible token file is missing
+  fail:
+    msg: "Vault Ansible token file is missing at {{ vault_ansible_token_file }}. Run 64-vault-ansible-token first."
+  when: not vault_ansible_token_file_stat.stat.exists
+
+- name: Read Vault Ansible token file
+  slurp:
+    path: "{{ vault_ansible_token_file }}"
+  register: vault_ansible_token_file_raw
+
+- name: Parse Vault Ansible token
+  set_fact:
+    vault_ansible_token: "{{ vault_ansible_token_file_raw.content | b64decode | trim }}"
+  no_log: true

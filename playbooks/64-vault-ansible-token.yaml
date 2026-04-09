@@ -1,0 +1,131 @@
+---
+- name: Create or refresh Vault Ansible automation policy and token
+  hosts: vault[0]
+  become: true
+  gather_facts: false
+
+  vars:
+    vault_cli_env:
+      VAULT_ADDR: "{{ vault_api_addr }}"
+      VAULT_CLIENT_CERT: "{{ vault_server_cert_path }}"
+      VAULT_CLIENT_KEY: "{{ vault_server_key_path }}"
+      VAULT_CACERT: "{{ vault_ca_cert_path }}"
+    vault_cli_auth_env: "{{ vault_cli_env | combine({'VAULT_TOKEN': vault_root_token}) }}"
+
+  vars_files:
+    - ../vars/vault-init-unseal-config.yaml
+    - ../vars/bootstrap-tls-vault-consul.yaml
+    - ../vars/vault-config-ssh.yaml
+    - ../vars/vault-human-auth.yaml
+    - ../vars/vault-ansible-token.yaml
+
+  environment: "{{ vault_cli_env }}"
+
+  tasks:
+    - name: Load Vault init data and root token
+      import_tasks: ../tasks/vault/read-init-token.yaml
+
+    - name: Check Vault is initialized and unsealed
+      import_tasks: ../tasks/vault/assert-initialized-unsealed.yaml
+
+    - name: Ensure Vault state directory exists
+      file:
+        path: "{{ vault_state_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Render Vault Ansible automation policy file
+      template:
+        src: vault-policies/templates/ansible-automation-policy.hcl.j2
+        dest: "{{ vault_ansible_policy_file }}"
+        owner: root
+        group: root
+        mode: "0600"
+
+    - name: Create or update Vault Ansible automation policy
+      command:
+        argv:
+          - vault
+          - policy
+          - write
+          - -address={{ vault_api_addr }}
+          - "{{ vault_ansible_policy_name }}"
+          - "{{ vault_ansible_policy_file }}"
+      environment: "{{ vault_cli_auth_env }}"
+      changed_when: true
+      no_log: true
+
+    - name: Check whether Vault Ansible token file exists
+      stat:
+        path: "{{ vault_ansible_token_file }}"
+      register: vault_ansible_token_stat
+
+    - name: Read existing Vault Ansible token file
+      slurp:
+        path: "{{ vault_ansible_token_file }}"
+      register: vault_ansible_token_existing_raw
+      when: vault_ansible_token_stat.stat.exists
+      no_log: true
+
+    - name: Set existing Vault Ansible token fact
+      set_fact:
+        vault_ansible_token_existing: "{{ vault_ansible_token_existing_raw.content | b64decode | trim }}"
+      when: vault_ansible_token_stat.stat.exists
+      no_log: true
+
+    - name: Create Vault Ansible automation token
+      command:
+        argv:
+          - vault
+          - token
+          - create
+          - -address={{ vault_api_addr }}
+          - -orphan
+          - -display-name={{ vault_ansible_token_display_name }}
+          - -policy={{ vault_ansible_policy_name }}
+          - -format=json
+      register: vault_ansible_token_create
+      changed_when: true
+      environment: "{{ vault_cli_auth_env }}"
+      no_log: true
+
+    - name: Parse created Vault Ansible token
+      set_fact:
+        vault_ansible_token_created: "{{ (vault_ansible_token_create.stdout | from_json).auth.client_token }}"
+      no_log: true
+
+    - name: Persist Vault Ansible automation token
+      copy:
+        dest: "{{ vault_ansible_token_file }}"
+        owner: root
+        group: root
+        mode: "0600"
+        content: "{{ vault_ansible_token_created }}\n"
+      no_log: true
+
+    - name: Revoke previous Vault Ansible automation token
+      command:
+        argv:
+          - vault
+          - token
+          - revoke
+          - -address={{ vault_api_addr }}
+          - "{{ vault_ansible_token_existing }}"
+      register: vault_ansible_token_revoke
+      changed_when: vault_ansible_token_revoke.rc == 0
+      failed_when: false
+      when:
+        - vault_ansible_token_stat.stat.exists
+        - vault_ansible_token_existing | length > 0
+        - vault_ansible_token_existing != vault_ansible_token_created
+      environment: "{{ vault_cli_auth_env }}"
+      no_log: true
+
+    - name: Show Vault Ansible token status
+      debug:
+        msg:
+          - "Vault Ansible policy: {{ vault_ansible_policy_name }}"
+          - "Vault Ansible token file: {{ vault_ansible_token_file }}"
+          - "Previous token replaced: {{ vault_ansible_token_stat.stat.exists | ternary('yes', 'no') }}"

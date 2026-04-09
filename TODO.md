@@ -30,6 +30,15 @@
   - Update playbooks to read steady-state secrets from HashiCorp Vault instead of repo-managed encrypted files where appropriate
   - Remove or minimize long-term reliance on repo-stored bootstrap secrets once the Vault-based secret flow is proven
 
+### Vault Automation Auth
+- [ ] Revisit how Ansible authenticates to Vault for steady-state automation
+  - Avoid relying long-term on a persisted bearer token on file system on Vault host
+  - Evaluate a machine-oriented auth method such as AppRole, TLS certificate auth, or another non-human Vault auth flow
+  - AppRole flow: store Role ID plus Secret ID, authenticate to Vault with them, and let Vault issue a token carrying the policies attached to that AppRole
+  - TLS certificate auth flow: present a client certificate to Vault, let Vault map that certificate identity to policies, and let Vault issue a token for that machine identity
+  - In both designs, policy still exists; the difference is that automation obtains tokens dynamically through a machine auth method instead of reusing one persisted long-lived token directly
+  - Define the rotation and recovery model for automation credentials after the initial bootstrap phase
+
 ## Developer Workflow
 
 - [ ] Add `lefthook` with a Bash validation script for Ansible playbooks

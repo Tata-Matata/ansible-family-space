@@ -1,0 +1,4 @@
+vault_ansible_policy_name: ansible-automation
+vault_ansible_policy_file: "{{ vault_state_dir }}/ansible-automation-policy.hcl"
+vault_ansible_token_file: "{{ vault_state_dir }}/ansible-automation.token"
+vault_ansible_token_display_name: ansible-automation
