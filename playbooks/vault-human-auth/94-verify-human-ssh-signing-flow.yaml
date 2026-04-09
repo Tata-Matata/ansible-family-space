@@ -72,7 +72,7 @@
           - read
           - -format=json
           - -address={{ vault_api_addr }}
-          - {{ vault_ssh_secrets_mount_path }}/roles/{{ vault_human_ssh_role_name }}
+          - "{{ vault_ssh_secrets_mount_path }}/roles/{{ vault_human_ssh_role_name }}"
       register: vault_human_ssh_role_raw
       changed_when: false
       environment: "{{ vault_cli_auth_env }}"
@@ -85,7 +85,7 @@
           - policy
           - read
           - -address={{ vault_api_addr }}
-          - {{ vault_human_policy_name }}
+          - "{{ vault_human_policy_name }}"
       register: vault_human_policy_raw
       changed_when: false
       environment: "{{ vault_cli_auth_env }}"
