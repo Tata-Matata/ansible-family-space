@@ -81,6 +81,7 @@
           - -address={{ vault_api_addr }}
           - "{{ vault_ssh_secrets_mount_path }}/roles/{{ vault_human_ssh_role_name }}"
           - key_type=ca
+          - allow_user_certificates=true
           - allowed_users={{ vault_human_ssh_allowed_users }}
           - default_user={{ vault_human_ssh_default_user }}
           - ttl={{ vault_human_ssh_ttl }}
