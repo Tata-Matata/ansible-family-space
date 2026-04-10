@@ -1,3 +1,3 @@
-consul_healthcheck_use_acl_token: false
+# No role defaults currently required.
 
 
