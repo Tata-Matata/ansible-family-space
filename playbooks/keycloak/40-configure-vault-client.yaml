@@ -107,6 +107,33 @@
       when: keycloak_vault_client_uuid == ''
       no_log: true
 
+    - name: Update Keycloak Vault OIDC client settings and secret
+      become_user: "{{ keycloak_user }}"
+      environment: "{{ keycloak_admin_cli_environment }}"
+      command:
+        argv:
+          - "{{ keycloak_home }}/bin/kcadm.sh"
+          - update
+          - "clients/{{ keycloak_vault_client_uuid }}"
+          - -r
+          - "{{ keycloak_realm_name }}"
+          - -s
+          - enabled=true
+          - -s
+          - protocol=openid-connect
+          - -s
+          - publicClient=false
+          - -s
+          - secret={{ keycloak_vault_client_secret }}
+          - -s
+          - 'redirectUris={{ keycloak_vault_redirect_uris | to_json }}'
+          - -s
+          - 'webOrigins={{ keycloak_vault_web_origins | to_json }}'
+          - -s
+          - standardFlowEnabled=true
+      changed_when: true
+      no_log: true
+
     - name: Query existing Keycloak groups mapper
       become_user: "{{ keycloak_user }}"
       environment: "{{ keycloak_admin_cli_environment }}"
