@@ -1,0 +1,63 @@
+---
+- name: Configure time synchronization with chrony
+  hosts: all
+  become: true
+  gather_facts: false
+
+  vars_files:
+    - ../vars/ntp.yaml
+
+  tasks:
+    - name: Ensure chrony is installed
+      apt:
+        name: chrony
+        state: present
+        update_cache: true
+
+    - name: Disable systemd-timesyncd when present
+      systemd:
+        name: systemd-timesyncd
+        enabled: false
+        state: stopped
+      failed_when: false
+
+    - name: Configure chrony upstream servers
+      blockinfile:
+        path: "{{ chrony_config_path }}"
+        marker: "# {mark} ANSIBLE MANAGED NTP"
+        block: |
+          {% for ntp_server in chrony_ntp_servers %}
+          server {{ ntp_server }} iburst
+          {% endfor %}
+          makestep {{ chrony_makestep_threshold }} {{ chrony_makestep_limit }}
+      register: chrony_config
+
+    - name: Enable and restart chrony
+      systemd:
+        name: "{{ chrony_service_name }}"
+        enabled: true
+        state: "{{ 'restarted' if chrony_config.changed else 'started' }}"
+
+    - name: Force immediate clock step when needed
+      command: chronyc makestep
+      register: chrony_makestep
+      changed_when: >-
+        chrony_makestep.rc == 0 and
+        ('200 OK' in (chrony_makestep.stdout | default('')) or 'clock stepped' in (chrony_makestep.stdout | default('')))
+      failed_when: false
+
+    - name: Show chrony tracking status
+      command: chronyc tracking
+      register: chrony_tracking
+      changed_when: false
+
+    - name: Show timedatectl status
+      command: timedatectl status
+      register: timedatectl_status
+      changed_when: false
+
+    - name: Display time synchronization summary
+      debug:
+        msg:
+          - "chronyc tracking: {{ chrony_tracking.stdout_lines | default([]) }}"
+          - "timedatectl status: {{ timedatectl_status.stdout_lines | default([]) }}"
