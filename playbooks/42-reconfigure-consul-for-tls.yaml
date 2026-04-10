@@ -31,8 +31,6 @@
   vars_files:
     - ../vars/bootstrap-tls-vault-consul.yaml
     - ../vars/consul-acl-vars.yaml
-  vars:
-    consul_healthcheck_use_acl_token: "{{ consul_acl_bootstrapped | default(false) | bool }}"
   tasks:
   - name: Stop Consul
     systemd:
@@ -94,19 +92,59 @@
     - ../vars/bootstrap-tls-vault-consul.yaml
     - ../vars/consul-acl-vars.yaml
   tasks:
+    - name: Probe Consul HTTPS API from Bastion without ACL token
+      uri:
+        url: "{{ consul_api_health_addr }}"
+        method: GET
+        return_content: true
+        status_code: [200, 401, 403]
+        validate_certs: true
+        client_cert: "{{ bastion_client_auth_to_consul_cert_path }}"
+        client_key: "{{ bastion_client_auth_to_consul_key_path }}"
+      register: bastion_consul_api_probe
+      changed_when: false
+
+    # if the probe returns 401 or 403, ACL is already enabled in Consult and 
+    # an ACL token is required for Bastion verification
+    - name: Decide whether Bastion verification should use a Consul ACL token
+      set_fact:
+        bastion_consul_verify_use_acl_token: "{{ bastion_consul_api_probe.status in [401, 403] }}"
+      changed_when: false
+
+    - name: Check if bastion agent-read token file exists
+      stat:
+        path: "{{ bastion_consul_read_token_path }}"
+      register: bastion_agent_read_token_file_stat
+      changed_when: false
+
+    - name: Fail when Bastion verification requires token but token file is missing
+      fail:
+        msg: >-
+          Consul runtime is denying unauthenticated access to {{ consul_api_self_path }}
+          from Bastion with status {{ bastion_consul_api_probe.status }}, so the Bastion
+          read token is required for verification, but the token file
+          {{ bastion_consul_read_token_path }} is missing.
+      when:
+        - bastion_consul_verify_use_acl_token | bool
+        - not bastion_agent_read_token_file_stat.stat.exists
+
     - name: Read bastion agent-read token from file
       slurp:
         src: "{{ bastion_consul_read_token_path }}"
       register: bastion_agent_read_token_file
       no_log: true
-      when: consul_acl_bootstrapped | default(false) | bool
+      when:
+        - bastion_consul_verify_use_acl_token | bool
+        - bastion_agent_read_token_file_stat.stat.exists
 
     - name: Set bastion agent-read token fact
       set_fact:
         bastion_agent_read_token: "{{ bastion_agent_read_token_file.content | b64decode | trim }}"
       changed_when: false
       no_log: true
-      when: consul_acl_bootstrapped | default(false) | bool
+      when:
+        - bastion_consul_verify_use_acl_token | bool
+        - bastion_agent_read_token_file_stat.stat.exists
 
     - name: Verify Consul HTTPS API from Bastion
       include_role:
@@ -118,5 +156,5 @@
         verify_https_client_cert: "{{ bastion_client_auth_to_consul_cert_path }}"
         verify_https_client_key: "{{ bastion_client_auth_to_consul_key_path }}"
         # CA is now installed in system trust store, no need to specify
-        verify_https_headers: "{{ {'X-Consul-Token': bastion_agent_read_token} if consul_acl_bootstrapped | default(false) | bool else omit }}"
+        verify_https_headers: "{{ {'X-Consul-Token': bastion_agent_read_token} if bastion_consul_verify_use_acl_token | bool else omit }}"
 

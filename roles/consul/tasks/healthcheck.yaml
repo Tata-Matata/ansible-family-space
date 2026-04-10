@@ -5,21 +5,53 @@
 # We first wait for the agent API, then for leader election
 # CA certificate is installed in system trust store, so validate_certs works automatically
 
+# Auto-detect whether the runtime API requires an ACL token unless a caller
+# explicitly overrides the behavior.
+- name: Probe Consul agent API without ACL token
+  uri:
+    url: "{{ consul_api_internal_health_addr }}"
+    method: GET
+    return_content: true
+    status_code: [200, 401, 403]
+    validate_certs: "{{ consul_tls_enabled }}"
+    client_cert: "{{ consul_server_cert_path if consul_tls_enabled else omit }}"
+    client_key: "{{ consul_server_key_path if consul_tls_enabled else omit }}"
+  register: consul_agent_health_probe
+  retries: 30
+  delay: 2
+  until:
+    - consul_agent_health_probe is succeeded
+    - consul_agent_health_probe.status in [200, 401, 403]
+  when: consul_healthcheck_use_acl_token is not defined
+  changed_when: false
+
+- name: Decide whether Consul healthcheck should use an ACL token
+  set_fact:
+    consul_healthcheck_use_acl_token_effective: >-
+      {{
+        (consul_healthcheck_use_acl_token
+        if (consul_healthcheck_use_acl_token is defined)
+        else (consul_agent_health_probe.status in [401, 403])) | bool
+      }}
+  changed_when: false
+
 # Optionally use the local agent token after ACL bootstrap.
 - name: Check if Consul agent token file exists
   stat:
     path: "{{ consul_server_agent_token_raw_path }}"
   register: consul_agent_token_file_stat
   changed_when: false
-  when: consul_healthcheck_use_acl_token | bool
+  when: consul_healthcheck_use_acl_token_effective | bool
 
 - name: Fail when Consul healthcheck requires token but token file is missing
   fail:
     msg: >-
-      Consul healthcheck is configured to use an ACL token, but the token file
+      Consul runtime is denying unauthenticated access to {{ consul_api_self_path }}
+      with status {{ consul_agent_health_probe.status | default('unknown') }}, so an
+      ACL token is required for health checks, but the token file
       {{ consul_server_agent_token_raw_path }} is missing.
   when:
-    - consul_healthcheck_use_acl_token | bool
+    - consul_healthcheck_use_acl_token_effective | bool
     - not consul_agent_token_file_stat.stat.exists
 
 - name: Read Consul agent token from file (if present)
@@ -27,7 +59,7 @@
     src: "{{ consul_server_agent_token_raw_path }}"
   register: consul_agent_token_file
   when:
-    - consul_healthcheck_use_acl_token | bool
+    - consul_healthcheck_use_acl_token_effective | bool
     - consul_agent_token_file_stat.stat.exists
   no_log: true
 
@@ -35,7 +67,7 @@
   set_fact:
     consul_agent_token: "{{ consul_agent_token_file.content | b64decode | trim }}"
   when:
-    - consul_healthcheck_use_acl_token | bool
+    - consul_healthcheck_use_acl_token_effective | bool
     - consul_agent_token_file_stat.stat.exists
   changed_when: false
   no_log: true
@@ -52,7 +84,7 @@
     # in this case, consul server keys are used as client keys for simplicity
     client_cert: "{{ consul_server_cert_path if consul_tls_enabled else omit }}"
     client_key: "{{ consul_server_key_path if consul_tls_enabled else omit }}"
-    headers: "{{ {'X-Consul-Token': consul_agent_token} if consul_healthcheck_use_acl_token | bool else omit }}"
+    headers: "{{ {'X-Consul-Token': consul_agent_token} if consul_healthcheck_use_acl_token_effective | bool else omit }}"
   register: consul_agent_health
   retries: 30
   delay: 2
@@ -74,7 +106,7 @@
     # in this case, consul server keys are used as client keys for simplicity
     client_cert: "{{ consul_server_cert_path if consul_tls_enabled else omit }}"
     client_key: "{{ consul_server_key_path if consul_tls_enabled else omit }}"
-    headers: "{{ {'X-Consul-Token': consul_agent_token} if consul_healthcheck_use_acl_token | bool else omit }}"
+    headers: "{{ {'X-Consul-Token': consul_agent_token} if consul_healthcheck_use_acl_token_effective | bool else omit }}"
   register: consul_leader
   retries: 30
   delay: 2
