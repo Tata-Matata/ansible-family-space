@@ -134,6 +134,15 @@ However, depending on how Vault is currently operating, restart may leave it sea
 
 If Vault comes back sealed after the restart, run the normal unseal steps again using your existing unseal workflow.
 
+In this repository that means:
+
+```bash
+ansible-playbook playbooks/62-vault-unseal-preflight-check.yaml
+ansible-playbook playbooks/63-vault-unseal.yaml
+```
+
+Treat this as part of the normal Vault TLS rotation flow whenever `43-reconfigure-vault-for-tls.yaml` leaves Vault at health status `503`.
+
 ## Step 6: Reissue And Restart Keycloak TLS
 
 Because Keycloak TLS is also signed by the same bootstrap CA, it must be rotated too.
@@ -227,6 +236,13 @@ Reinstall Vault TLS:
 
 ```bash
 ansible-playbook playbooks/43-reconfigure-vault-for-tls.yaml
+```
+
+If Vault is sealed after restart:
+
+```bash
+ansible-playbook playbooks/62-vault-unseal-preflight-check.yaml
+ansible-playbook playbooks/63-vault-unseal.yaml
 ```
 
 Reissue Keycloak TLS:

@@ -22,6 +22,14 @@ session_prefix "" {
 # So for Vault: no agent, no local registration, no catalog services
 # Therefore: Vault policy has no agent_prefix, has no service_prefix
 
+# Vault in this repo does not run a local Consul agent and does not configure a
+# Consul service_registration block. So it does not need agent_prefix.
+# We have observed WARN log lines about missing service:write on "vault" during
+# some restart/reconcile paths. In the current repo design, those warnings are
+# not treated as proof that broader Consul permissions are required.
+# Keep this policy minimal unless a real feature or failure is traced back to
+# explicit Consul service registration by Vault.
+
 # KEY
 # At the moment, Vault talks only to catalog-independent APIs, such as:
 # /v1/kv/..., /v1/session/create, /v1/lock/...

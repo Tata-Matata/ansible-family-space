@@ -134,7 +134,7 @@
     uri:
       url: "{{ vault_api_health_internal_addr}}"
       method: GET
-      status_code: [ 429, 501 ]
+      status_code: [ 429, 501, 503 ]
       # for Ansible to validate the Vault server certificate
       ca_path: "{{ vault_ca_cert_path }}"
       # since we enabled mTLS, Vault will want to check client certs
@@ -143,7 +143,16 @@
       client_key: "{{ vault_server_key_path }}"
       validate_certs: true
       return_content: false
+    register: vault_https_internal_health
     changed_when: false
+
+  - name: Fail when Vault restarted sealed after TLS reconfigure
+    fail:
+      msg: >-
+        Vault HTTPS is reachable, but Vault is sealed after restart (health status 503).
+        Run playbooks/62-vault-unseal-preflight-check.yaml and then
+        playbooks/63-vault-unseal.yaml.
+    when: vault_https_internal_health.status == 503
 
   ###############################################################################
   # on BASTION: Verify TLS connectivity to Vault  ############################### 
@@ -158,13 +167,20 @@
   tasks:      
   # verify mTLS from Bastion to Vault
   - name: Verify Vault HTTPS API from Bastion
-    include_role:
-      name: verify_https
-    vars:
-      verify_https_name: "Vault api"
-      verify_https_url: "{{ vault_api_health_addr }}"
-      # mTLS client certs for Bastion → Vault
-      verify_https_client_cert: "{{ bastion_client_auth_to_vault_cert_path }}"
-      verify_https_client_key: "{{ bastion_client_auth_to_vault_key_path }}"
-      # CA is now installed in system trust store, no need to specify
-      verify_https_expected_status: [ 429, 501 ]
+    uri:
+      url: "{{ vault_api_health_addr }}"
+      method: GET
+      client_cert: "{{ bastion_client_auth_to_vault_cert_path }}"
+      client_key: "{{ bastion_client_auth_to_vault_key_path }}"
+      validate_certs: true
+      status_code: [ 429, 501, 503 ]
+    register: vault_https_bastion_health
+    changed_when: false
+
+  - name: Fail when Bastion sees Vault sealed after TLS reconfigure
+    fail:
+      msg: >-
+        Bastion can reach Vault over mTLS, but Vault is sealed after restart (health status 503).
+        Run playbooks/62-vault-unseal-preflight-check.yaml and then
+        playbooks/63-vault-unseal.yaml.
+    when: vault_https_bastion_health.status == 503
