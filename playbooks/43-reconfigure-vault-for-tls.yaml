@@ -29,6 +29,7 @@
   gather_facts: false
   vars_files:
     - ../vars/bootstrap-tls-vault-consul.yaml
+    - ../vars/consul-acl-vars.yaml
 
   tasks:
   - name: Stop Vault
@@ -41,6 +42,59 @@
     import_role:
       name: vault
       tasks_from: configure
+
+  - name: Probe Consul HTTPS API from Vault without ACL token
+    uri:
+      url: "{{ consul_api_health_addr }}"
+      method: GET
+      return_content: true
+      status_code: [200, 401, 403]
+      validate_certs: true
+      ca_path: "{{ vault_ca_cert_path }}"
+      client_cert: "{{ vault_client_auth_to_consul_cert_path }}"
+      client_key: "{{ vault_client_auth_to_consul_key_path }}"
+    register: vault_consul_api_probe
+    changed_when: false
+
+  - name: Check if Vault Consul token file exists
+    stat:
+      path: "{{ vault_consul_token_path }}"
+    register: vault_consul_token_file_stat
+    changed_when: false
+    when: vault_consul_api_probe.status in [401, 403]
+
+  - name: Check if Vault Consul systemd override exists
+    stat:
+      path: "{{ vault_consul_systemd_override_path }}"
+    register: vault_consul_systemd_override_stat
+    changed_when: false
+    when: vault_consul_api_probe.status in [401, 403]
+
+  - name: Fail when Vault Consul token is required but token file is missing
+    fail:
+      msg: >-
+        Consul runtime is denying unauthenticated access from Vault with status
+        {{ vault_consul_api_probe.status }}, so the Vault Consul backend token is
+        required, but the token file {{ vault_consul_token_path }} is missing.
+        Re-run playbooks/consul-acl/43_distribute_vault_token.yaml.
+    when:
+      - vault_consul_api_probe.status in [401, 403]
+      - not vault_consul_token_file_stat.stat.exists
+
+  - name: Fail when Vault Consul token is required but systemd override is missing
+    fail:
+      msg: >-
+        Consul runtime is denying unauthenticated access from Vault with status
+        {{ vault_consul_api_probe.status }}, so Vault must provide CONSUL_HTTP_TOKEN,
+        but the systemd override file {{ vault_consul_systemd_override_path }} is missing.
+        Re-run playbooks/consul-acl/43_distribute_vault_token.yaml.
+    when:
+      - vault_consul_api_probe.status in [401, 403]
+      - not vault_consul_systemd_override_stat.stat.exists
+
+  - name: Reload systemd before starting Vault
+    systemd:
+      daemon_reload: true
       
 
   - name: Start Vault
