@@ -26,7 +26,8 @@
 - name: Generate Consul TLS private key
   community.crypto.openssl_privatekey:
     path: "{{ bastion_tmp_tls_dir_for_consul }}/{{ consul_host }}/{{ consul_server_key_file }}"
-    type: Ed25519
+    type: ECC
+    curve: secp256r1
     owner: ansible
     group: ansible
     mode: "0600"

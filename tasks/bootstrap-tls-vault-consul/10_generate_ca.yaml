@@ -34,7 +34,8 @@
 - name: Generate bootstrap TLS CA private key
   community.crypto.openssl_privatekey:
     path: "{{ bastion_ca_key_path }}"
-    type: Ed25519
+    type: ECC
+    curve: secp256r1
     owner: root
     group: root
     mode: "0600"

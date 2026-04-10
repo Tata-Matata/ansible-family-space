@@ -27,7 +27,8 @@
 - name: Generate Bastion Vault client private key
   community.crypto.openssl_privatekey:
     path: "{{ bastion_tmp_tls_dir_for_vault_clients }}/{{ bastion_host }}/{{ vault_client_key_file }}"
-    type: Ed25519
+    type: ECC
+    curve: secp256r1
     owner: ansible
     group: ansible
     mode: "0600"
