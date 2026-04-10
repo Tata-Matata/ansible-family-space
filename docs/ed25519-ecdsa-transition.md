@@ -103,6 +103,16 @@ Because the CA changes, simply replacing a leaf certificate is not enough.
 
 Any trust store that previously contained the old CA must be updated with the new CA certificate.
 
+## Temporary Lifetime Adjustment
+
+The bootstrap TLS lifetime is also being extended from 7 days to 90 days.
+
+This does not change the long-term design goal. The bootstrap TLS material is still temporary and should eventually be replaced by Vault-managed PKI.
+
+The longer lifetime is a pragmatic operational choice to avoid another forced rotation during the migration period while Vault PKI is being introduced.
+
+The repo still keeps a bounded upper limit for this temporary CA, but it is no longer constrained to the previous 14-day maximum.
+
 ## Why This Is Better
 
 After this transition, the bootstrap TLS chain should be acceptable to:

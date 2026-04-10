@@ -82,9 +82,9 @@
 - name: Assert bootstrap CA TTL is within allowed bounds
   assert:
     that:
-      - bootstrap_ca_ttl_days | int <= 14
+      - bootstrap_ca_ttl_days | int <= 365
     fail_msg: >
-      Bootstrap TLS CA TTL is too long. This CA must be short-lived by design (<= 14 days).
+      Bootstrap TLS CA TTL is too long. This temporary bootstrap CA must remain time-bounded by design (<= 365 days).
 
 - name: Assert bootstrap CA files exist
   include_role:

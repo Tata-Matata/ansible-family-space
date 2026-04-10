@@ -1,7 +1,7 @@
 # Bootstrap TLS phase configuration
 # Used ONLY by 4x-xx.yaml playbooks to set variables related to TLS certificate generation, distribution and configuration for Vault and Consul
 
-bootstrap_ca_ttl_days: 7
+bootstrap_ca_ttl_days: 90
 
 
 
