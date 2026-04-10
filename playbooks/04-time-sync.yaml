@@ -1,5 +1,5 @@
 ---
-- name: Configure time synchronization with chrony
+- name: Configure time synchronization with systemd-timesyncd
   hosts: all
   become: true
   gather_facts: false
@@ -8,47 +8,31 @@
     - ../vars/ntp.yaml
 
   tasks:
-    - name: Ensure chrony is installed
-      apt:
-        name: chrony
-        state: present
-        update_cache: true
-
-    - name: Disable systemd-timesyncd when present
+    - name: Stop and disable chrony when present
       systemd:
-        name: systemd-timesyncd
+        name: chrony
         enabled: false
         state: stopped
       failed_when: false
 
-    - name: Configure chrony upstream servers
+    - name: Configure systemd-timesyncd upstream servers
       blockinfile:
-        path: "{{ chrony_config_path }}"
+        path: "{{ timesyncd_config_path }}"
         marker: "# {mark} ANSIBLE MANAGED NTP"
         block: |
-          {% for ntp_server in chrony_ntp_servers %}
-          server {{ ntp_server }} iburst
-          {% endfor %}
-          makestep {{ chrony_makestep_threshold }} {{ chrony_makestep_limit }}
-      register: chrony_config
+          [Time]
+          NTP={{ ntp_servers | join(' ') }}
+          FallbackNTP=
+      register: timesyncd_config
 
-    - name: Enable and restart chrony
+    - name: Enable and restart systemd-timesyncd
       systemd:
-        name: "{{ chrony_service_name }}"
+        name: "{{ timesyncd_service_name }}"
         enabled: true
-        state: "{{ 'restarted' if chrony_config.changed else 'started' }}"
+        state: "{{ 'restarted' if timesyncd_config.changed else 'started' }}"
 
-    - name: Force immediate clock step when needed
-      command: chronyc makestep
-      register: chrony_makestep
-      changed_when: >-
-        chrony_makestep.rc == 0 and
-        ('200 OK' in (chrony_makestep.stdout | default('')) or 'clock stepped' in (chrony_makestep.stdout | default('')))
-      failed_when: false
-
-    - name: Show chrony tracking status
-      command: chronyc tracking
-      register: chrony_tracking
+    - name: Enable NTP synchronization via timedatectl
+      command: timedatectl set-ntp true
       changed_when: false
 
     - name: Show timedatectl status
@@ -56,8 +40,14 @@
       register: timedatectl_status
       changed_when: false
 
+    - name: Show timesyncd status when available
+      command: timedatectl timesync-status
+      register: timesyncd_status
+      changed_when: false
+      failed_when: false
+
     - name: Display time synchronization summary
       debug:
         msg:
-          - "chronyc tracking: {{ chrony_tracking.stdout_lines | default([]) }}"
           - "timedatectl status: {{ timedatectl_status.stdout_lines | default([]) }}"
+          - "timesyncd status: {{ timesyncd_status.stdout_lines | default([]) }}"
